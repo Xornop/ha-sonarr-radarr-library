@@ -67,7 +67,18 @@ class SonarrClient(_BaseArrClient):
         series_list = await self._get(SONARR_ENDPOINT_SERIES)
         series_titles = {series["id"]: series.get("title", "Unknown") for series in series_list}
 
-        episode_files = await self._get(SONARR_ENDPOINT_EPISODEFILE)
+        # Sonarr's /api/v3/episodefile endpoint requires a seriesId query param
+        # (an unfiltered GET returns 400 Bad Request), so fetch per series.
+        # Skip series with no files yet to keep the number of calls down.
+        episode_files: list[dict[str, Any]] = []
+        for series in series_list:
+            stats = series.get("statistics") or {}
+            if not stats.get("episodeFileCount"):
+                continue
+            series_files = await self._get(
+                f"{SONARR_ENDPOINT_EPISODEFILE}?seriesId={series['id']}"
+            )
+            episode_files.extend(series_files)
 
         seasons: dict[tuple[int, int], dict[str, Any]] = {}
         for ep_file in episode_files:
