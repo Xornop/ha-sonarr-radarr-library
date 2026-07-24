@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sonarr & Radarr Library",
+        "description": "Enter the URLs and API keys for your Sonarr and Radarr instances. The API key can be found under Settings > General in each app.",
+        "data": {
+          "sonarr_url": "Sonarr URL",
+          "sonarr_api_key": "Sonarr API key",
+          "radarr_url": "Radarr URL",
+          "radarr_api_key": "Radarr API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Check the URL(s) and make sure Sonarr/Radarr are reachable.",
+      "invalid_auth": "Invalid API key.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Sonarr/Radarr combination is already configured."
+    }
+  }
+}
