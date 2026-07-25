@@ -6,18 +6,23 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_ITEMS,
     ATTR_LAST_DOWNLOAD,
+    ATTR_NEXT_REMOVAL,
     DOMAIN,
+    MAINTAINERR_COORDINATOR,
     RADARR_COORDINATOR,
     SONARR_COORDINATOR,
 )
-from .coordinator import RadarrDownloadsCoordinator, SonarrDownloadsCoordinator
+from .coordinator import (
+    MaintainerrCoordinator,
+    RadarrDownloadsCoordinator,
+    SonarrDownloadsCoordinator,
+)
 
 
 async def async_setup_entry(
@@ -25,15 +30,20 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Sonarr and Radarr sensors from a config entry."""
+    """Set up the Sonarr, Radarr and (optionally) Maintainerr sensors."""
     data = hass.data[DOMAIN][entry.entry_id]
 
-    async_add_entities(
-        [
-            SonarrDownloadedSeasonsSensor(data[SONARR_COORDINATOR], entry),
-            RadarrDownloadedMoviesSensor(data[RADARR_COORDINATOR], entry),
-        ]
-    )
+    entities: list[SensorEntity] = [
+        SonarrDownloadedSeasonsSensor(data[SONARR_COORDINATOR], entry),
+        RadarrDownloadedMoviesSensor(data[RADARR_COORDINATOR], entry),
+    ]
+
+    if MAINTAINERR_COORDINATOR in data:
+        entities.append(
+            MaintainerrScheduledRemovalsSensor(data[MAINTAINERR_COORDINATOR], entry)
+        )
+
+    async_add_entities(entities)
 
 
 class SonarrDownloadedSeasonsSensor(
@@ -45,7 +55,6 @@ class SonarrDownloadedSeasonsSensor(
     _attr_name = "Sonarr downloaded seasons"
     _attr_icon = "mdi:television-classic"
     _attr_native_unit_of_measurement = "seasons"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self, coordinator: SonarrDownloadsCoordinator, entry: ConfigEntry
@@ -80,7 +89,6 @@ class RadarrDownloadedMoviesSensor(
     _attr_name = "Radarr downloaded movies"
     _attr_icon = "mdi:movie-open"
     _attr_native_unit_of_measurement = "movies"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self, coordinator: RadarrDownloadsCoordinator, entry: ConfigEntry
@@ -103,4 +111,44 @@ class RadarrDownloadedMoviesSensor(
         return {
             ATTR_ITEMS: items,
             ATTR_LAST_DOWNLOAD: items[0]["download_date"] if items else None,
+        }
+
+
+class MaintainerrScheduledRemovalsSensor(
+    CoordinatorEntity[MaintainerrCoordinator], SensorEntity
+):
+    """Sensor exposing media that Maintainerr has scheduled for removal.
+
+    Field names inside each item are best-effort (see the docstring on
+    api.MaintainerrClient) — every entry also carries the original "raw"
+    payload so you can confirm the real Maintainerr field names via
+    Developer Tools > States and report back any mismatch.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Maintainerr scheduled removals"
+    _attr_icon = "mdi:trash-can-outline"
+    _attr_native_unit_of_measurement = "items"
+
+    def __init__(
+        self, coordinator: MaintainerrCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_maintainerr_scheduled_removals"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"{entry.entry_id}_maintainerr")},
+            "name": "Maintainerr",
+            "manufacturer": "Maintainerr",
+        }
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        items = self.coordinator.data or []
+        return {
+            ATTR_ITEMS: items,
+            ATTR_NEXT_REMOVAL: items[0]["scheduled_removal_date"] if items else None,
         }
