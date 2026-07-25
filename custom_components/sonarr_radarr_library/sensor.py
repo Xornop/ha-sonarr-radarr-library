@@ -13,6 +13,12 @@ from .const import (
     ATTR_ITEMS,
     ATTR_LAST_DOWNLOAD,
     ATTR_NEXT_REMOVAL,
+    CONF_MAINTAINERR_NAME,
+    CONF_RADARR_NAME,
+    CONF_SONARR_NAME,
+    DEFAULT_MAINTAINERR_NAME,
+    DEFAULT_RADARR_NAME,
+    DEFAULT_SONARR_NAME,
     DOMAIN,
     MAINTAINERR_COORDINATOR,
     RADARR_COORDINATOR,
@@ -30,14 +36,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Sonarr, Radarr and (optionally) Maintainerr sensors."""
+    """Set up a sensor for each service that's actually configured."""
     data = hass.data[DOMAIN][entry.entry_id]
+    entities: list[SensorEntity] = []
 
-    entities: list[SensorEntity] = [
-        SonarrDownloadedSeasonsSensor(data[SONARR_COORDINATOR], entry),
-        RadarrDownloadedMoviesSensor(data[RADARR_COORDINATOR], entry),
-    ]
-
+    if SONARR_COORDINATOR in data:
+        entities.append(SonarrDownloadedSeasonsSensor(data[SONARR_COORDINATOR], entry))
+    if RADARR_COORDINATOR in data:
+        entities.append(RadarrDownloadedMoviesSensor(data[RADARR_COORDINATOR], entry))
     if MAINTAINERR_COORDINATOR in data:
         entities.append(
             MaintainerrScheduledRemovalsSensor(data[MAINTAINERR_COORDINATOR], entry)
@@ -52,7 +58,11 @@ class SonarrDownloadedSeasonsSensor(
     """Sensor exposing every downloaded series season known to Sonarr."""
 
     _attr_has_entity_name = True
-    _attr_name = "Sonarr downloaded seasons"
+    # Just the suffix on purpose: has_entity_name prefixes this with the
+    # device name (the user's chosen Sonarr name) to build the final
+    # friendly name / entity_id, e.g. "Sonarr Downloaded seasons" ->
+    # sensor.sonarr_downloaded_seasons — not sensor.sonarr_sonarr_....
+    _attr_name = "Downloaded seasons"
     _attr_icon = "mdi:television-classic"
     _attr_native_unit_of_measurement = "seasons"
 
@@ -60,10 +70,11 @@ class SonarrDownloadedSeasonsSensor(
         self, coordinator: SonarrDownloadsCoordinator, entry: ConfigEntry
     ) -> None:
         super().__init__(coordinator)
+        name = entry.data.get(CONF_SONARR_NAME) or DEFAULT_SONARR_NAME
         self._attr_unique_id = f"{entry.entry_id}_sonarr_downloaded_seasons"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_sonarr")},
-            "name": "Sonarr",
+            "name": name,
             "manufacturer": "Sonarr",
         }
 
@@ -86,7 +97,7 @@ class RadarrDownloadedMoviesSensor(
     """Sensor exposing every downloaded movie known to Radarr."""
 
     _attr_has_entity_name = True
-    _attr_name = "Radarr downloaded movies"
+    _attr_name = "Downloaded movies"
     _attr_icon = "mdi:movie-open"
     _attr_native_unit_of_measurement = "movies"
 
@@ -94,10 +105,11 @@ class RadarrDownloadedMoviesSensor(
         self, coordinator: RadarrDownloadsCoordinator, entry: ConfigEntry
     ) -> None:
         super().__init__(coordinator)
+        name = entry.data.get(CONF_RADARR_NAME) or DEFAULT_RADARR_NAME
         self._attr_unique_id = f"{entry.entry_id}_radarr_downloaded_movies"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_radarr")},
-            "name": "Radarr",
+            "name": name,
             "manufacturer": "Radarr",
         }
 
@@ -117,16 +129,10 @@ class RadarrDownloadedMoviesSensor(
 class MaintainerrScheduledRemovalsSensor(
     CoordinatorEntity[MaintainerrCoordinator], SensorEntity
 ):
-    """Sensor exposing media that Maintainerr has scheduled for removal.
-
-    Field names inside each item are best-effort (see the docstring on
-    api.MaintainerrClient) — every entry also carries the original "raw"
-    payload so you can confirm the real Maintainerr field names via
-    Developer Tools > States and report back any mismatch.
-    """
+    """Sensor exposing media that Maintainerr has scheduled for removal."""
 
     _attr_has_entity_name = True
-    _attr_name = "Maintainerr scheduled removals"
+    _attr_name = "Scheduled removals"
     _attr_icon = "mdi:trash-can-outline"
     _attr_native_unit_of_measurement = "items"
 
@@ -134,10 +140,11 @@ class MaintainerrScheduledRemovalsSensor(
         self, coordinator: MaintainerrCoordinator, entry: ConfigEntry
     ) -> None:
         super().__init__(coordinator)
+        name = entry.data.get(CONF_MAINTAINERR_NAME) or DEFAULT_MAINTAINERR_NAME
         self._attr_unique_id = f"{entry.entry_id}_maintainerr_scheduled_removals"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_maintainerr")},
-            "name": "Maintainerr",
+            "name": name,
             "manufacturer": "Maintainerr",
         }
 
