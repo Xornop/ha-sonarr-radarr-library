@@ -10,8 +10,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import ApiAuthError, ApiConnectionError, RadarrClient, SonarrClient
+from .api import ApiAuthError, ApiConnectionError, MaintainerrClient, RadarrClient, SonarrClient
 from .const import (
+    CONF_MAINTAINERR_URL,
     CONF_RADARR_API_KEY,
     CONF_RADARR_URL,
     CONF_SONARR_API_KEY,
@@ -27,12 +28,15 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_SONARR_API_KEY): str,
         vol.Required(CONF_RADARR_URL, default="http://localhost:7878"): str,
         vol.Required(CONF_RADARR_API_KEY): str,
+        # Optional: leave blank to skip Maintainerr entirely. No API key
+        # field here on purpose — Maintainerr has no authentication at all.
+        vol.Optional(CONF_MAINTAINERR_URL, default=""): str,
     }
 )
 
 
 async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
-    """Try to reach both Sonarr and Radarr with the given data. Raises on failure."""
+    """Try to reach Sonarr, Radarr and (if given) Maintainerr. Raises on failure."""
     session = async_get_clientsession(hass)
 
     sonarr = SonarrClient(session, data[CONF_SONARR_URL], data[CONF_SONARR_API_KEY])
@@ -40,6 +44,11 @@ async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
     await sonarr.async_test_connection()
     await radarr.async_test_connection()
+
+    maintainerr_url = data.get(CONF_MAINTAINERR_URL, "").strip()
+    if maintainerr_url:
+        maintainerr = MaintainerrClient(session, maintainerr_url)
+        await maintainerr.async_test_connection()
 
 
 class SonarrRadarrLibraryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
