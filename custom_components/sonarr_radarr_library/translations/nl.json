@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sonarr & Radarr Library",
+        "description": "Alle drie de services zijn optioneel — laat de URL van een service leeg om die over te slaan, zolang er minstens één is ingevuld. De naam-velden gelden alleen voor deze installatiestap; ze bepalen de entity/device-naam (en dus entity_id) en zijn later niet meer aan te passen — alleen de URL's/API-keys kun je later wijzigen (via Configureren).",
+        "data": {
+          "sonarr_name": "Naam Sonarr-sensor",
+          "sonarr_url": "Sonarr URL",
+          "sonarr_api_key": "Sonarr API-key",
+          "radarr_name": "Naam Radarr-sensor",
+          "radarr_url": "Radarr URL",
+          "radarr_api_key": "Radarr API-key",
+          "maintainerr_name": "Naam Maintainerr-sensor",
+          "maintainerr_url": "Maintainerr URL (geen API-key nodig)"
+        },
+        "data_description": {
+          "sonarr_url": "bijv. http://homeassistant.local:8989",
+          "radarr_url": "bijv. http://homeassistant.local:7878",
+          "maintainerr_url": "bijv. http://homeassistant.local:6246"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbinden mislukt. Controleer de URL en of de service bereikbaar is.",
+      "invalid_auth": "Ongeldige API-key.",
+      "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
+      "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr of Maintainerr in.",
+      "unknown": "Onverwachte fout opgetreden."
+    },
+    "abort": {
+      "already_configured": "Deze combinatie van services is al geconfigureerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sonarr & Radarr Library — instellingen",
+        "description": "Pas URL's en API-keys aan. Laat de URL van een service leeg om die uit te schakelen, zolang er minstens één ingevuld blijft.",
+        "data": {
+          "sonarr_url": "Sonarr URL",
+          "sonarr_api_key": "Sonarr API-key",
+          "radarr_url": "Radarr URL",
+          "radarr_api_key": "Radarr API-key",
+          "maintainerr_url": "Maintainerr URL (geen API-key nodig)"
+        },
+        "data_description": {
+          "sonarr_url": "bijv. http://homeassistant.local:8989",
+          "radarr_url": "bijv. http://homeassistant.local:7878",
+          "maintainerr_url": "bijv. http://homeassistant.local:6246"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbinden mislukt. Controleer de URL en of de service bereikbaar is.",
+      "invalid_auth": "Ongeldige API-key.",
+      "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
+      "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr of Maintainerr in.",
+      "unknown": "Onverwachte fout opgetreden."
+    }
+  }
+}
