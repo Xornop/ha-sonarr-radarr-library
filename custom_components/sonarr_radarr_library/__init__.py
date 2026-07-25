@@ -6,17 +6,23 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import RadarrClient, SonarrClient
+from .api import MaintainerrClient, RadarrClient, SonarrClient
 from .const import (
+    CONF_MAINTAINERR_URL,
     CONF_RADARR_API_KEY,
     CONF_RADARR_URL,
     CONF_SONARR_API_KEY,
     CONF_SONARR_URL,
     DOMAIN,
+    MAINTAINERR_COORDINATOR,
     RADARR_COORDINATOR,
     SONARR_COORDINATOR,
 )
-from .coordinator import RadarrDownloadsCoordinator, SonarrDownloadsCoordinator
+from .coordinator import (
+    MaintainerrCoordinator,
+    RadarrDownloadsCoordinator,
+    SonarrDownloadsCoordinator,
+)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -43,6 +49,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SONARR_COORDINATOR: sonarr_coordinator,
         RADARR_COORDINATOR: radarr_coordinator,
     }
+
+    maintainerr_url = entry.data.get(CONF_MAINTAINERR_URL, "").strip()
+    if maintainerr_url:
+        maintainerr_client = MaintainerrClient(
+            session,
+            maintainerr_url,
+            radarr_client=radarr_client,
+            sonarr_client=sonarr_client,
+        )
+        maintainerr_coordinator = MaintainerrCoordinator(hass, maintainerr_client)
+        await maintainerr_coordinator.async_config_entry_first_refresh()
+        hass.data[DOMAIN][entry.entry_id][MAINTAINERR_COORDINATOR] = maintainerr_coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
