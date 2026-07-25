@@ -5,9 +5,23 @@ DOMAIN = "sonarr_radarr_library"
 
 CONF_SONARR_URL = "sonarr_url"
 CONF_SONARR_API_KEY = "sonarr_api_key"
+CONF_SONARR_NAME = "sonarr_name"
 CONF_RADARR_URL = "radarr_url"
 CONF_RADARR_API_KEY = "radarr_api_key"
+CONF_RADARR_NAME = "radarr_name"
 CONF_MAINTAINERR_URL = "maintainerr_url"
+CONF_MAINTAINERR_NAME = "maintainerr_name"
+
+# Used as the device name (and therefore part of the entity_id/friendly
+# name) whenever the user leaves the "name" field blank at setup.
+DEFAULT_SONARR_NAME = "Sonarr"
+DEFAULT_RADARR_NAME = "Radarr"
+DEFAULT_MAINTAINERR_NAME = "Maintainerr"
+
+# Shown as example/helper text under the URL fields in the config flow.
+EXAMPLE_SONARR_URL = "http://homeassistant.local:8989"
+EXAMPLE_RADARR_URL = "http://homeassistant.local:7878"
+EXAMPLE_MAINTAINERR_URL = "http://homeassistant.local:6246"
 
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 
