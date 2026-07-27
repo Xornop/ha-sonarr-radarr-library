@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sonarr & Radarr Library",
-        "description": "Alle drie de services zijn optioneel — laat de URL van een service leeg om die over te slaan, zolang er minstens één is ingevuld. De naam-velden gelden alleen voor deze installatiestap; ze bepalen de entity/device-naam (en dus entity_id) en zijn later niet meer aan te passen — alleen de URL's/API-keys kun je later wijzigen (via Configureren).",
+        "description": "Alle vier de services zijn optioneel — laat de URL van een service leeg om die over te slaan, zolang er minstens één is ingevuld. De naam-velden gelden alleen voor deze installatiestap; ze bepalen de entity/device-naam (en dus entity_id) en zijn later niet meer aan te passen — alleen de URL's/API-keys kun je later wijzigen (via Configureren).",
         "data": {
           "sonarr_name": "Naam Sonarr-sensor",
           "sonarr_url": "Sonarr URL",
@@ -12,12 +12,17 @@
           "radarr_url": "Radarr URL",
           "radarr_api_key": "Radarr API-key",
           "maintainerr_name": "Naam Maintainerr-sensor",
-          "maintainerr_url": "Maintainerr URL (geen API-key nodig)"
+          "maintainerr_url": "Maintainerr URL (geen API-key nodig)",
+          "qbittorrent_name": "Naam qBittorrent-sensor",
+          "qbittorrent_url": "qBittorrent URL",
+          "qbittorrent_username": "qBittorrent gebruikersnaam",
+          "qbittorrent_password": "qBittorrent wachtwoord"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
-          "maintainerr_url": "bijv. http://homeassistant.local:6246"
+          "maintainerr_url": "bijv. http://homeassistant.local:6246",
+          "qbittorrent_url": "bijv. http://homeassistant.local:8080"
         }
       }
     },
@@ -26,7 +31,7 @@
       "invalid_auth": "Ongeldige API-key.",
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
-      "no_services_configured": "Vul minstens één van Sonarr, Radarr of Maintainerr in.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
       "unknown": "Onverwachte fout opgetreden."
     },
     "abort": {
@@ -43,12 +48,16 @@
           "sonarr_api_key": "Sonarr API-key",
           "radarr_url": "Radarr URL",
           "radarr_api_key": "Radarr API-key",
-          "maintainerr_url": "Maintainerr URL (geen API-key nodig)"
+          "maintainerr_url": "Maintainerr URL (geen API-key nodig)",
+          "qbittorrent_url": "qBittorrent URL",
+          "qbittorrent_username": "qBittorrent gebruikersnaam",
+          "qbittorrent_password": "qBittorrent wachtwoord"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
-          "maintainerr_url": "bijv. http://homeassistant.local:6246"
+          "maintainerr_url": "bijv. http://homeassistant.local:6246",
+          "qbittorrent_url": "bijv. http://homeassistant.local:8080"
         }
       }
     },
@@ -57,7 +66,7 @@
       "invalid_auth": "Ongeldige API-key.",
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
-      "no_services_configured": "Vul minstens één van Sonarr, Radarr of Maintainerr in.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
       "unknown": "Onverwachte fout opgetreden."
     }
   }
