@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
@@ -10,15 +10,23 @@ import async_timeout
 
 from .const import (
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_PASSWORD,
+    CONF_QBIT_URL,
+    CONF_QBIT_USERNAME,
     CONF_RADARR_API_KEY,
     CONF_RADARR_URL,
     CONF_SONARR_API_KEY,
     CONF_SONARR_URL,
     MAINTAINERR_ENDPOINT_HEALTH,
     MAINTAINERR_ENDPOINT_OVERLAY_DATA,
+    QBIT_ENDPOINT_LOGIN,
+    QBIT_ENDPOINT_PREFERENCES,
+    QBIT_ENDPOINT_TORRENTS,
     RADARR_ENDPOINT_MOVIE,
+    RADARR_ENDPOINT_QUEUE,
     RADARR_ENDPOINT_STATUS,
     SONARR_ENDPOINT_EPISODEFILE,
+    SONARR_ENDPOINT_QUEUE,
     SONARR_ENDPOINT_SERIES,
     SONARR_ENDPOINT_STATUS,
 )
@@ -71,6 +79,19 @@ class _BaseArrClient:
     async def async_test_connection(self, status_endpoint: str) -> None:
         """Raise ApiAuthError / ApiConnectionError if the connection is bad."""
         await self._get(status_endpoint)
+
+    async def _get_all_pages(self, endpoint: str, query: str) -> list[dict[str, Any]]:
+        """Page through a paged *arr endpoint (e.g. /queue) and return all records."""
+        records: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            data = await self._get(f"{endpoint}?{query}&page={page}")
+            page_records = data.get("records", [])
+            records.extend(page_records)
+            if not page_records or len(records) >= data.get("totalRecords", len(records)):
+                break
+            page += 1
+        return records
 
 
 class SonarrClient(_BaseArrClient):
@@ -128,6 +149,37 @@ class SonarrClient(_BaseArrClient):
             reverse=True,
         )
 
+    async def async_get_queue_map(self) -> dict[str, dict[str, Any]]:
+        """Return {infohash_lower: {"title": ..., "media_type": "series"}}.
+
+        This is the actual fix for qBittorrent only knowing a torrent's
+        release name: Sonarr's own download queue links each item's
+        downloadId (the torrent's info hash) to the series/episode it
+        belongs to, since Sonarr is the one that told the download client
+        what to grab in the first place.
+        """
+        records = await self._get_all_pages(
+            SONARR_ENDPOINT_QUEUE, "pageSize=200&includeSeries=true&includeEpisode=true"
+        )
+
+        result: dict[str, dict[str, Any]] = {}
+        for record in records:
+            download_id = record.get("downloadId")
+            if not download_id:
+                continue
+
+            series = record.get("series") or {}
+            episode = record.get("episode") or {}
+            title = series.get("title") or record.get("title", "Unknown")
+            season = episode.get("seasonNumber")
+            ep_number = episode.get("episodeNumber")
+            if season is not None and ep_number is not None:
+                title = f"{title} S{season:02d}E{ep_number:02d}"
+
+            result[download_id.lower()] = {"title": title, "media_type": "series"}
+
+        return result
+
     async def async_get_tvdb_title_map(self) -> dict[int, str]:
         """Return {tvdbId: title} for every series known to Sonarr.
 
@@ -174,6 +226,33 @@ class RadarrClient(_BaseArrClient):
             key=lambda item: item["download_date"] or "",
             reverse=True,
         )
+
+    async def async_get_queue_map(self) -> dict[str, dict[str, Any]]:
+        """Return {infohash_lower: {"title": ..., "media_type": "movie"}}.
+
+        Same idea as SonarrClient.async_get_queue_map(): Radarr's queue
+        links each item's downloadId (torrent info hash) to the actual
+        movie, since Radarr is the one that sent it to the download client.
+        """
+        records = await self._get_all_pages(
+            RADARR_ENDPOINT_QUEUE, "pageSize=200&includeMovie=true"
+        )
+
+        result: dict[str, dict[str, Any]] = {}
+        for record in records:
+            download_id = record.get("downloadId")
+            if not download_id:
+                continue
+
+            movie = record.get("movie") or {}
+            title = movie.get("title") or record.get("title", "Unknown")
+            year = movie.get("year")
+            if year:
+                title = f"{title} ({year})"
+
+            result[download_id.lower()] = {"title": title, "media_type": "movie"}
+
+        return result
 
     async def async_get_tmdb_title_map(self) -> dict[int, str]:
         """Return {tmdbId: title} for every movie known to Radarr.
@@ -349,6 +428,171 @@ class MaintainerrClient:
         return (parsed + timedelta(days=days)).isoformat()
 
 
+class QbittorrentClient:
+    """Client for qBittorrent's WebUI API.
+
+    qBittorrent itself only ever knows a download's torrent name (e.g.
+    "Some.Movie.2024.1080p.WEB-DL-GROUP"), never the actual movie/series it
+    belongs to. To resolve that, this client cross-references each
+    torrent's info hash against Sonarr's and Radarr's own download queues
+    (see SonarrClient/RadarrClient.async_get_queue_map), since those are
+    the services that sent the torrent to qBittorrent in the first place
+    and already know exactly what it is. Torrents with no match (e.g.
+    added outside Sonarr/Radarr) fall back to the raw torrent name.
+    """
+
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        url: str,
+        username: str,
+        password: str,
+        sonarr_client: SonarrClient | None = None,
+        radarr_client: RadarrClient | None = None,
+    ) -> None:
+        self._session = session
+        self._url = url.rstrip("/")
+        self._username = username
+        self._password = password
+        self._sonarr_client = sonarr_client
+        self._radarr_client = radarr_client
+        self._logged_in = False
+        self._global_seeding_time_limit: int | None = None  # minutes, None = unknown
+
+    async def _login(self) -> None:
+        try:
+            async with async_timeout.timeout(REQUEST_TIMEOUT):
+                resp = await self._session.post(
+                    f"{self._url}{QBIT_ENDPOINT_LOGIN}",
+                    data={"username": self._username, "password": self._password},
+                    # qBittorrent's CSRF protection checks the Referer header
+                    # on the login request; without it, login is refused.
+                    headers={"Referer": self._url},
+                )
+                resp.raise_for_status()
+                body = await resp.text()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise ApiConnectionError(str(err)) from err
+
+        if body.strip() != "Ok.":
+            raise ApiAuthError("qBittorrent login rejected (check username/password)")
+        self._logged_in = True
+
+    async def _get(self, endpoint: str) -> Any:
+        if not self._logged_in:
+            await self._login()
+        try:
+            async with async_timeout.timeout(REQUEST_TIMEOUT):
+                resp = await self._session.get(
+                    f"{self._url}{endpoint}", headers={"Referer": self._url}
+                )
+                if resp.status == 403:
+                    # Session cookie expired; log in again and retry once.
+                    self._logged_in = False
+                    await self._login()
+                    resp = await self._session.get(
+                        f"{self._url}{endpoint}", headers={"Referer": self._url}
+                    )
+                resp.raise_for_status()
+                return await resp.json()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise ApiConnectionError(str(err)) from err
+
+    async def async_test_connection(self) -> None:
+        """Raise ApiAuthError / ApiConnectionError if login fails."""
+        await self._login()
+
+    async def _async_get_global_seeding_time_limit(self) -> int | None:
+        """Return qBittorrent's global 'max seeding time' in minutes, or None.
+
+        Per-torrent seeding_time_limit of -2 means "use the global limit",
+        so this is needed to turn that into an actual removal estimate.
+        Fetched once and cached for the lifetime of this client.
+        """
+        if self._global_seeding_time_limit is not None:
+            return self._global_seeding_time_limit
+        try:
+            prefs = await self._get(QBIT_ENDPOINT_PREFERENCES)
+        except ApiConnectionError:
+            return None
+        if prefs.get("max_seeding_time_enabled") and prefs.get("max_seeding_time", -1) >= 0:
+            self._global_seeding_time_limit = prefs["max_seeding_time"]
+        else:
+            self._global_seeding_time_limit = -1  # sentinel: checked, no global limit
+        return self._global_seeding_time_limit if self._global_seeding_time_limit >= 0 else None
+
+    async def async_get_active_downloads(self) -> list[dict[str, Any]]:
+        """Return every torrent currently in qBittorrent, matched to its
+        real title via Sonarr/Radarr where possible, with an estimated
+        removal date based on qBittorrent's seeding-time limit.
+        """
+        torrents = await self._get(QBIT_ENDPOINT_TORRENTS)
+
+        title_map: dict[str, dict[str, Any]] = {}
+        if self._sonarr_client is not None:
+            try:
+                title_map.update(await self._sonarr_client.async_get_queue_map())
+            except (ApiAuthError, ApiConnectionError) as err:
+                _LOGGER.debug("Could not resolve titles via Sonarr queue: %s", err)
+        if self._radarr_client is not None:
+            try:
+                title_map.update(await self._radarr_client.async_get_queue_map())
+            except (ApiAuthError, ApiConnectionError) as err:
+                _LOGGER.debug("Could not resolve titles via Radarr queue: %s", err)
+
+        downloads = []
+        for torrent in torrents:
+            info_hash = (torrent.get("hash") or "").lower()
+            match = title_map.get(info_hash)
+
+            downloads.append(
+                {
+                    "title": match["title"] if match else torrent.get("name", "Unknown"),
+                    "media_type": match["media_type"] if match else None,
+                    "matched_via_arr": match is not None,
+                    "torrent_name": torrent.get("name"),
+                    "category": torrent.get("category"),
+                    "state": torrent.get("state"),
+                    "progress_percent": round((torrent.get("progress") or 0) * 100, 1),
+                    "added_date": self._epoch_to_iso(torrent.get("added_on")),
+                    "completed_date": self._epoch_to_iso(torrent.get("completion_on")),
+                    "removal_date": await self._estimate_removal_date(torrent),
+                }
+            )
+
+        return sorted(downloads, key=lambda item: item["removal_date"] or "9999")
+
+    async def _estimate_removal_date(self, torrent: dict[str, Any]) -> str | None:
+        """Estimate when qBittorrent's seeding-time limit will auto-remove
+        this torrent. Returns None when it can't be predicted: no
+        completion date yet, seeding time unlimited, or the torrent (or
+        the global default) instead uses a share-ratio limit, which has no
+        fixed date.
+        """
+        completion_on = torrent.get("completion_on")
+        if not completion_on or completion_on <= 0:
+            return None
+
+        limit = torrent.get("seeding_time_limit")
+        if limit is None:
+            return None
+        if limit == -2:  # use global default
+            limit = await self._async_get_global_seeding_time_limit()
+        if limit is None or limit < 0:  # unlimited or unknown
+            return None
+
+        removal = datetime.fromtimestamp(completion_on, tz=timezone.utc) + timedelta(
+            minutes=limit
+        )
+        return removal.isoformat()
+
+    @staticmethod
+    def _epoch_to_iso(value: Any) -> str | None:
+        if not value or value <= 0:
+            return None
+        return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+
+
 async def async_test_all_services(
     session: aiohttp.ClientSession, config: dict[str, Any]
 ) -> dict[str, str]:
@@ -387,5 +631,18 @@ async def async_test_all_services(
             await MaintainerrClient(session, maintainerr_url).async_test_connection()
         except ApiConnectionError:
             results["maintainerr"] = "cannot_connect"
+
+    qbit_url = (config.get(CONF_QBIT_URL) or "").strip()
+    if qbit_url:
+        qbit_username = (config.get(CONF_QBIT_USERNAME) or "").strip()
+        qbit_password = (config.get(CONF_QBIT_PASSWORD) or "").strip()
+        try:
+            await QbittorrentClient(
+                session, qbit_url, qbit_username, qbit_password
+            ).async_test_connection()
+        except ApiAuthError:
+            results["qbittorrent"] = "invalid_auth"
+        except ApiConnectionError:
+            results["qbittorrent"] = "cannot_connect"
 
     return results
