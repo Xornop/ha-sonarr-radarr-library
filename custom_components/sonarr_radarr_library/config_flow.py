@@ -15,6 +15,7 @@ from .api import async_test_all_services
 from .const import (
     CONF_MAINTAINERR_NAME,
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_API_KEY,
     CONF_QBIT_NAME,
     CONF_QBIT_PASSWORD,
     CONF_QBIT_URL,
@@ -40,7 +41,7 @@ _ERROR_FIELD_BY_SERVICE = {
     "sonarr": CONF_SONARR_API_KEY,
     "radarr": CONF_RADARR_API_KEY,
     "maintainerr": CONF_MAINTAINERR_URL,
-    "qbittorrent": CONF_QBIT_PASSWORD,
+    "qbittorrent": CONF_QBIT_API_KEY,
 }
 
 
@@ -65,6 +66,7 @@ def _service_schema(defaults: dict[str, Any], include_names: bool) -> dict[Any, 
     if include_names:
         schema[vol.Optional(CONF_QBIT_NAME, default=defaults.get(CONF_QBIT_NAME, DEFAULT_QBIT_NAME))] = str
     schema[vol.Optional(CONF_QBIT_URL, default=defaults.get(CONF_QBIT_URL, ""))] = str
+    schema[vol.Optional(CONF_QBIT_API_KEY, default=defaults.get(CONF_QBIT_API_KEY, ""))] = str
     schema[vol.Optional(CONF_QBIT_USERNAME, default=defaults.get(CONF_QBIT_USERNAME, ""))] = str
     schema[vol.Optional(CONF_QBIT_PASSWORD, default=defaults.get(CONF_QBIT_PASSWORD, ""))] = str
 
@@ -81,6 +83,9 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
     radarr_key = (data.get(CONF_RADARR_API_KEY) or "").strip()
     maintainerr_url = (data.get(CONF_MAINTAINERR_URL) or "").strip()
     qbit_url = (data.get(CONF_QBIT_URL) or "").strip()
+    qbit_api_key = (data.get(CONF_QBIT_API_KEY) or "").strip()
+    qbit_username = (data.get(CONF_QBIT_USERNAME) or "").strip()
+    qbit_password = (data.get(CONF_QBIT_PASSWORD) or "").strip()
 
     if sonarr_url and not sonarr_key:
         errors[CONF_SONARR_API_KEY] = "required_with_url"
@@ -90,6 +95,8 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
         errors[CONF_RADARR_API_KEY] = "required_with_url"
     if radarr_key and not radarr_url:
         errors[CONF_RADARR_URL] = "required_with_key"
+    if qbit_url and not (qbit_api_key or (qbit_username and qbit_password)):
+        errors[CONF_QBIT_API_KEY] = "qbit_auth_required"
 
     if errors:
         return errors
