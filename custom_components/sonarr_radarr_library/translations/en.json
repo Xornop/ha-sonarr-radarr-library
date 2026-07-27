@@ -15,14 +15,16 @@
           "maintainerr_url": "Maintainerr URL (no API key needed)",
           "qbittorrent_name": "qBittorrent sensor name",
           "qbittorrent_url": "qBittorrent URL",
-          "qbittorrent_username": "qBittorrent username",
-          "qbittorrent_password": "qBittorrent password"
+          "qbittorrent_api_key": "qBittorrent API key (preferred, qBittorrent ≥ 5.2.0)",
+          "qbittorrent_username": "qBittorrent username (fallback, qBittorrent < 5.2.0)",
+          "qbittorrent_password": "qBittorrent password (fallback, qBittorrent < 5.2.0)"
         },
         "data_description": {
           "sonarr_url": "e.g. http://homeassistant.local:8989",
           "radarr_url": "e.g. http://homeassistant.local:7878",
           "maintainerr_url": "e.g. http://homeassistant.local:6246",
-          "qbittorrent_url": "e.g. http://homeassistant.local:8080"
+          "qbittorrent_url": "e.g. http://homeassistant.local:8080",
+          "qbittorrent_api_key": "Generate one in qBittorrent's WebUI settings. Preferred over username/password."
         }
       }
     },
@@ -32,7 +34,8 @@
       "required_with_url": "An API key is required when a URL is set.",
       "required_with_key": "A URL is required when an API key is set.",
       "no_services_configured": "Fill in at least one of Sonarr, Radarr, Maintainerr or qBittorrent.",
-      "unknown": "Unexpected error occurred."
+      "unknown": "Unexpected error occurred.",
+      "qbit_auth_required": "Fill in either a qBittorrent API key, or both a username and password."
     },
     "abort": {
       "already_configured": "This combination of services is already configured."
@@ -51,13 +54,15 @@
           "maintainerr_url": "Maintainerr URL (no API key needed)",
           "qbittorrent_url": "qBittorrent URL",
           "qbittorrent_username": "qBittorrent username",
-          "qbittorrent_password": "qBittorrent password"
+          "qbittorrent_password": "qBittorrent password",
+          "qbittorrent_api_key": "qBittorrent API key (preferred, qBittorrent ≥ 5.2.0)"
         },
         "data_description": {
           "sonarr_url": "e.g. http://homeassistant.local:8989",
           "radarr_url": "e.g. http://homeassistant.local:7878",
           "maintainerr_url": "e.g. http://homeassistant.local:6246",
-          "qbittorrent_url": "e.g. http://homeassistant.local:8080"
+          "qbittorrent_url": "e.g. http://homeassistant.local:8080",
+          "qbittorrent_api_key": "Generate one in qBittorrent's WebUI settings. Preferred over username/password."
         }
       }
     },
@@ -67,7 +72,8 @@
       "required_with_url": "An API key is required when a URL is set.",
       "required_with_key": "A URL is required when an API key is set.",
       "no_services_configured": "Fill in at least one of Sonarr, Radarr, Maintainerr or qBittorrent.",
-      "unknown": "Unexpected error occurred."
+      "unknown": "Unexpected error occurred.",
+      "qbit_auth_required": "Fill in either a qBittorrent API key, or both a username and password."
     }
   }
 }
