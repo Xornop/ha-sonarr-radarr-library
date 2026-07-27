@@ -6,20 +6,25 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import MaintainerrClient, RadarrClient, SonarrClient
+from .api import MaintainerrClient, QbittorrentClient, RadarrClient, SonarrClient
 from .const import (
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_PASSWORD,
+    CONF_QBIT_URL,
+    CONF_QBIT_USERNAME,
     CONF_RADARR_API_KEY,
     CONF_RADARR_URL,
     CONF_SONARR_API_KEY,
     CONF_SONARR_URL,
     DOMAIN,
     MAINTAINERR_COORDINATOR,
+    QBIT_COORDINATOR,
     RADARR_COORDINATOR,
     SONARR_COORDINATOR,
 )
 from .coordinator import (
     MaintainerrCoordinator,
+    QbittorrentCoordinator,
     RadarrDownloadsCoordinator,
     SonarrDownloadsCoordinator,
 )
@@ -71,6 +76,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         maintainerr_coordinator = MaintainerrCoordinator(hass, maintainerr_client)
         await maintainerr_coordinator.async_config_entry_first_refresh()
         hass.data[DOMAIN][entry.entry_id][MAINTAINERR_COORDINATOR] = maintainerr_coordinator
+
+    qbit_url = (config.get(CONF_QBIT_URL) or "").strip()
+    if qbit_url:
+        qbit_client = QbittorrentClient(
+            session,
+            qbit_url,
+            (config.get(CONF_QBIT_USERNAME) or "").strip(),
+            (config.get(CONF_QBIT_PASSWORD) or "").strip(),
+            # Passed through so downloads can be matched to their real
+            # title via Sonarr's/Radarr's queue instead of the raw
+            # torrent name. Either may be None if not configured.
+            sonarr_client=sonarr_client,
+            radarr_client=radarr_client,
+        )
+        qbit_coordinator = QbittorrentCoordinator(hass, qbit_client)
+        await qbit_coordinator.async_config_entry_first_refresh()
+        hass.data[DOMAIN][entry.entry_id][QBIT_COORDINATOR] = qbit_coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
