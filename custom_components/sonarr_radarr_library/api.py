@@ -559,25 +559,35 @@ class QbittorrentClient:
         title_map: dict[str, dict[str, Any]] = {}
         if self._sonarr_client is not None:
             try:
-                title_map.update(await self._sonarr_client.async_get_queue_map())
+                sonarr_map = await self._sonarr_client.async_get_queue_map()
+                title_map.update(sonarr_map)
+                _LOGGER.debug("Sonarr queue: %d matchable entries", len(sonarr_map))
             except (ApiAuthError, ApiConnectionError) as err:
-                _LOGGER.debug("Could not resolve titles via Sonarr queue: %s", err)
+                # Logged as a warning (not debug) on purpose: if this fails
+                # silently, every download falls back to "unmatched" with
+                # no obvious clue why, which is confusing to debug.
+                _LOGGER.warning("Could not resolve titles via Sonarr queue: %s", err)
         if self._radarr_client is not None:
             try:
-                title_map.update(await self._radarr_client.async_get_queue_map())
+                radarr_map = await self._radarr_client.async_get_queue_map()
+                title_map.update(radarr_map)
+                _LOGGER.debug("Radarr queue: %d matchable entries", len(radarr_map))
             except (ApiAuthError, ApiConnectionError) as err:
-                _LOGGER.debug("Could not resolve titles via Radarr queue: %s", err)
+                _LOGGER.warning("Could not resolve titles via Radarr queue: %s", err)
 
         downloads = []
+        matched_count = 0
         for torrent in torrents:
-            info_hash = (torrent.get("hash") or "").lower()
-            match = title_map.get(info_hash)
+            match, info_hash = self._match_torrent(torrent, title_map)
+            if match:
+                matched_count += 1
 
             downloads.append(
                 {
                     "title": match["title"] if match else torrent.get("name", "Unknown"),
                     "media_type": match["media_type"] if match else None,
                     "matched_via_arr": match is not None,
+                    "info_hash": info_hash,
                     "torrent_name": torrent.get("name"),
                     "category": torrent.get("category"),
                     "state": torrent.get("state"),
@@ -587,6 +597,13 @@ class QbittorrentClient:
                     "removal_date": await self._estimate_removal_date(torrent),
                 }
             )
+
+        _LOGGER.debug(
+            "qBittorrent: %d torrents, %d matched via Sonarr/Radarr, %d title(s) known",
+            len(torrents),
+            matched_count,
+            len(title_map),
+        )
 
         return sorted(downloads, key=lambda item: item["removal_date"] or "9999")
 
@@ -615,7 +632,33 @@ class QbittorrentClient:
         return removal.isoformat()
 
     @staticmethod
-    def _epoch_to_iso(value: Any) -> str | None:
+    def _match_torrent(
+        torrent: dict[str, Any], title_map: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Match a qBittorrent torrent to a Sonarr/Radarr queue entry.
+
+        qBittorrent's "hash" field is the v1 SHA1 hash for v1-only
+        torrents, but for hybrid (v1+v2) torrents it can instead be a
+        truncated v2 hash — while Sonarr/Radarr may have recorded the v1
+        hash as downloadId (e.g. from the original magnet link). To avoid
+        silently matching nothing on hybrid torrents, every hash qBittorrent
+        exposes for a torrent is tried, not just "hash".
+        """
+        candidates = [
+            torrent.get("hash"),
+            torrent.get("infohash_v1"),
+            torrent.get("infohash_v2"),
+        ]
+        primary_hash = next((h for h in candidates if h), None)
+        for candidate in candidates:
+            if not candidate:
+                continue
+            match = title_map.get(candidate.lower())
+            if match:
+                return match, primary_hash
+        return None, primary_hash
+
+
         if not value or value <= 0:
             return None
         return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
