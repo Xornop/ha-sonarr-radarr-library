@@ -15,6 +15,10 @@ from .api import async_test_all_services
 from .const import (
     CONF_MAINTAINERR_NAME,
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_NAME,
+    CONF_QBIT_PASSWORD,
+    CONF_QBIT_URL,
+    CONF_QBIT_USERNAME,
     CONF_RADARR_API_KEY,
     CONF_RADARR_NAME,
     CONF_RADARR_URL,
@@ -22,6 +26,7 @@ from .const import (
     CONF_SONARR_NAME,
     CONF_SONARR_URL,
     DEFAULT_MAINTAINERR_NAME,
+    DEFAULT_QBIT_NAME,
     DEFAULT_RADARR_NAME,
     DEFAULT_SONARR_NAME,
     DOMAIN,
@@ -35,6 +40,7 @@ _ERROR_FIELD_BY_SERVICE = {
     "sonarr": CONF_SONARR_API_KEY,
     "radarr": CONF_RADARR_API_KEY,
     "maintainerr": CONF_MAINTAINERR_URL,
+    "qbittorrent": CONF_QBIT_PASSWORD,
 }
 
 
@@ -56,6 +62,12 @@ def _service_schema(defaults: dict[str, Any], include_names: bool) -> dict[Any, 
         schema[vol.Optional(CONF_MAINTAINERR_NAME, default=defaults.get(CONF_MAINTAINERR_NAME, DEFAULT_MAINTAINERR_NAME))] = str
     schema[vol.Optional(CONF_MAINTAINERR_URL, default=defaults.get(CONF_MAINTAINERR_URL, ""))] = str
 
+    if include_names:
+        schema[vol.Optional(CONF_QBIT_NAME, default=defaults.get(CONF_QBIT_NAME, DEFAULT_QBIT_NAME))] = str
+    schema[vol.Optional(CONF_QBIT_URL, default=defaults.get(CONF_QBIT_URL, ""))] = str
+    schema[vol.Optional(CONF_QBIT_USERNAME, default=defaults.get(CONF_QBIT_USERNAME, ""))] = str
+    schema[vol.Optional(CONF_QBIT_PASSWORD, default=defaults.get(CONF_QBIT_PASSWORD, ""))] = str
+
     return schema
 
 
@@ -68,6 +80,7 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
     radarr_url = (data.get(CONF_RADARR_URL) or "").strip()
     radarr_key = (data.get(CONF_RADARR_API_KEY) or "").strip()
     maintainerr_url = (data.get(CONF_MAINTAINERR_URL) or "").strip()
+    qbit_url = (data.get(CONF_QBIT_URL) or "").strip()
 
     if sonarr_url and not sonarr_key:
         errors[CONF_SONARR_API_KEY] = "required_with_url"
@@ -81,7 +94,7 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
     if errors:
         return errors
 
-    if not (sonarr_url or radarr_url or maintainerr_url):
+    if not (sonarr_url or radarr_url or maintainerr_url or qbit_url):
         return {"base": "no_services_configured"}
 
     session = async_get_clientsession(hass)
@@ -114,6 +127,7 @@ class SonarrRadarrLibraryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     (user_input.get(CONF_SONARR_URL) or "").strip(),
                     (user_input.get(CONF_RADARR_URL) or "").strip(),
                     (user_input.get(CONF_MAINTAINERR_URL) or "").strip(),
+                    (user_input.get(CONF_QBIT_URL) or "").strip(),
                 ]
                 await self.async_set_unique_id("|".join(p for p in unique_parts if p))
                 self._abort_if_unique_id_configured()
