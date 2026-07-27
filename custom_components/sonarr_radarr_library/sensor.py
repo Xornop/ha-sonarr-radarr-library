@@ -14,18 +14,22 @@ from .const import (
     ATTR_LAST_DOWNLOAD,
     ATTR_NEXT_REMOVAL,
     CONF_MAINTAINERR_NAME,
+    CONF_QBIT_NAME,
     CONF_RADARR_NAME,
     CONF_SONARR_NAME,
     DEFAULT_MAINTAINERR_NAME,
+    DEFAULT_QBIT_NAME,
     DEFAULT_RADARR_NAME,
     DEFAULT_SONARR_NAME,
     DOMAIN,
     MAINTAINERR_COORDINATOR,
+    QBIT_COORDINATOR,
     RADARR_COORDINATOR,
     SONARR_COORDINATOR,
 )
 from .coordinator import (
     MaintainerrCoordinator,
+    QbittorrentCoordinator,
     RadarrDownloadsCoordinator,
     SonarrDownloadsCoordinator,
 )
@@ -48,6 +52,8 @@ async def async_setup_entry(
         entities.append(
             MaintainerrScheduledRemovalsSensor(data[MAINTAINERR_COORDINATOR], entry)
         )
+    if QBIT_COORDINATOR in data:
+        entities.append(QbittorrentActiveDownloadsSensor(data[QBIT_COORDINATOR], entry))
 
     async_add_entities(entities)
 
@@ -158,4 +164,41 @@ class MaintainerrScheduledRemovalsSensor(
         return {
             ATTR_ITEMS: items,
             ATTR_NEXT_REMOVAL: items[0]["scheduled_removal_date"] if items else None,
+        }
+
+
+class QbittorrentActiveDownloadsSensor(
+    CoordinatorEntity[QbittorrentCoordinator], SensorEntity
+):
+    """Sensor exposing every torrent currently active in qBittorrent,
+    matched to its real title via Sonarr/Radarr where possible.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Active downloads"
+    _attr_icon = "mdi:download"
+    _attr_native_unit_of_measurement = "downloads"
+
+    def __init__(
+        self, coordinator: QbittorrentCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator)
+        name = entry.data.get(CONF_QBIT_NAME) or DEFAULT_QBIT_NAME
+        self._attr_unique_id = f"{entry.entry_id}_qbittorrent_active_downloads"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"{entry.entry_id}_qbittorrent")},
+            "name": name,
+            "manufacturer": "qBittorrent",
+        }
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data or [])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        items = self.coordinator.data or []
+        return {
+            ATTR_ITEMS: items,
+            ATTR_NEXT_REMOVAL: items[0]["removal_date"] if items else None,
         }
