@@ -9,6 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import MaintainerrClient, QbittorrentClient, RadarrClient, SonarrClient
 from .const import (
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_API_KEY,
     CONF_QBIT_PASSWORD,
     CONF_QBIT_URL,
     CONF_QBIT_USERNAME,
@@ -82,6 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         qbit_client = QbittorrentClient(
             session,
             qbit_url,
+            (config.get(CONF_QBIT_API_KEY) or "").strip(),
             (config.get(CONF_QBIT_USERNAME) or "").strip(),
             (config.get(CONF_QBIT_PASSWORD) or "").strip(),
             # Passed through so downloads can be matched to their real
