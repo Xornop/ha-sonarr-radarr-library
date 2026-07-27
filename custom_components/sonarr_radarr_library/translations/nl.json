@@ -15,14 +15,16 @@
           "maintainerr_url": "Maintainerr URL (geen API-key nodig)",
           "qbittorrent_name": "Naam qBittorrent-sensor",
           "qbittorrent_url": "qBittorrent URL",
-          "qbittorrent_username": "qBittorrent gebruikersnaam",
-          "qbittorrent_password": "qBittorrent wachtwoord"
+          "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)",
+          "qbittorrent_username": "qBittorrent gebruikersnaam (fallback, qBittorrent < 5.2.0)",
+          "qbittorrent_password": "qBittorrent wachtwoord (fallback, qBittorrent < 5.2.0)"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
-          "qbittorrent_url": "bijv. http://homeassistant.local:8080"
+          "qbittorrent_url": "bijv. http://homeassistant.local:8080",
+          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord."
         }
       }
     },
@@ -32,7 +34,8 @@
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
       "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
-      "unknown": "Onverwachte fout opgetreden."
+      "unknown": "Onverwachte fout opgetreden.",
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
     },
     "abort": {
       "already_configured": "Deze combinatie van services is al geconfigureerd."
@@ -51,13 +54,15 @@
           "maintainerr_url": "Maintainerr URL (geen API-key nodig)",
           "qbittorrent_url": "qBittorrent URL",
           "qbittorrent_username": "qBittorrent gebruikersnaam",
-          "qbittorrent_password": "qBittorrent wachtwoord"
+          "qbittorrent_password": "qBittorrent wachtwoord",
+          "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
-          "qbittorrent_url": "bijv. http://homeassistant.local:8080"
+          "qbittorrent_url": "bijv. http://homeassistant.local:8080",
+          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord."
         }
       }
     },
@@ -67,7 +72,8 @@
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
       "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
-      "unknown": "Onverwachte fout opgetreden."
+      "unknown": "Onverwachte fout opgetreden.",
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
     }
   }
 }
