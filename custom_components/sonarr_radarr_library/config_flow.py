@@ -152,10 +152,13 @@ class SonarrRadarrLibraryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class SonarrRadarrLibraryOptionsFlow(config_entries.OptionsFlow):
-    """Lets URLs/API keys be edited after setup. Names are set-once (see the user step)."""
+    """Lets URLs/API keys be edited after setup. Names are set-once (see the user step).
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
+    No __init__ here on purpose: newer Home Assistant versions set
+    self.config_entry automatically, and a custom flow that also sets it
+    itself hits a hard error (this used to be required on older HA, but
+    is deprecated/removed now).
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
