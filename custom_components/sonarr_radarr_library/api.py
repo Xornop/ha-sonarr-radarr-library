@@ -10,6 +10,7 @@ import async_timeout
 
 from .const import (
     CONF_MAINTAINERR_URL,
+    CONF_QBIT_API_KEY,
     CONF_QBIT_PASSWORD,
     CONF_QBIT_URL,
     CONF_QBIT_USERNAME,
@@ -439,19 +440,29 @@ class QbittorrentClient:
     the services that sent the torrent to qBittorrent in the first place
     and already know exactly what it is. Torrents with no match (e.g.
     added outside Sonarr/Radarr) fall back to the raw torrent name.
+
+    Two auth modes, picked automatically based on what's configured:
+    - API key (qBittorrent >= 5.2.0): sent as an `Authorization: Bearer`
+      header on every request. Stateless, no cookies, no CSRF/Referer
+      dance — this is the preferred method when available.
+    - username/password: the older cookie-based WebUI login
+      (/api/v2/auth/login). Kept as a fallback for qBittorrent < 5.2.0,
+      where API keys don't exist yet.
     """
 
     def __init__(
         self,
         session: aiohttp.ClientSession,
         url: str,
-        username: str,
-        password: str,
+        api_key: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
         sonarr_client: SonarrClient | None = None,
         radarr_client: RadarrClient | None = None,
     ) -> None:
         self._session = session
         self._url = url.rstrip("/")
+        self._api_key = api_key or None
         self._username = username
         self._password = password
         self._sonarr_client = sonarr_client
@@ -460,6 +471,7 @@ class QbittorrentClient:
         self._global_seeding_time_limit: int | None = None  # minutes, None = unknown
 
     async def _login(self) -> None:
+        """Cookie-based login, only used when no API key is configured."""
         try:
             async with async_timeout.timeout(REQUEST_TIMEOUT):
                 resp = await self._session.post(
@@ -478,29 +490,45 @@ class QbittorrentClient:
             raise ApiAuthError("qBittorrent login rejected (check username/password)")
         self._logged_in = True
 
+    def _auth_headers(self) -> dict[str, str]:
+        if self._api_key:
+            return {"Authorization": f"Bearer {self._api_key}"}
+        # Cookie auth needs no explicit header beyond Referer (aiohttp's
+        # cookie jar attaches the SID cookie automatically after login).
+        return {"Referer": self._url}
+
     async def _get(self, endpoint: str) -> Any:
-        if not self._logged_in:
+        if not self._api_key and not self._logged_in:
             await self._login()
         try:
             async with async_timeout.timeout(REQUEST_TIMEOUT):
                 resp = await self._session.get(
-                    f"{self._url}{endpoint}", headers={"Referer": self._url}
+                    f"{self._url}{endpoint}", headers=self._auth_headers()
                 )
-                if resp.status == 403:
+                if resp.status in (401, 403):
+                    if self._api_key:
+                        raise ApiAuthError("qBittorrent rejected the API key")
                     # Session cookie expired; log in again and retry once.
                     self._logged_in = False
                     await self._login()
                     resp = await self._session.get(
-                        f"{self._url}{endpoint}", headers={"Referer": self._url}
+                        f"{self._url}{endpoint}", headers=self._auth_headers()
                     )
                 resp.raise_for_status()
                 return await resp.json()
+        except ApiAuthError:
+            raise
         except (aiohttp.ClientError, TimeoutError) as err:
             raise ApiConnectionError(str(err)) from err
 
     async def async_test_connection(self) -> None:
-        """Raise ApiAuthError / ApiConnectionError if login fails."""
-        await self._login()
+        """Raise ApiAuthError / ApiConnectionError if auth or the connection fails."""
+        if self._api_key:
+            # API keys can't use /auth/login (it's explicitly excluded), so
+            # test with a real, cheap authenticated endpoint instead.
+            await self._get(QBIT_ENDPOINT_PREFERENCES)
+        else:
+            await self._login()
 
     async def _async_get_global_seeding_time_limit(self) -> int | None:
         """Return qBittorrent's global 'max seeding time' in minutes, or None.
@@ -513,7 +541,7 @@ class QbittorrentClient:
             return self._global_seeding_time_limit
         try:
             prefs = await self._get(QBIT_ENDPOINT_PREFERENCES)
-        except ApiConnectionError:
+        except (ApiAuthError, ApiConnectionError):
             return None
         if prefs.get("max_seeding_time_enabled") and prefs.get("max_seeding_time", -1) >= 0:
             self._global_seeding_time_limit = prefs["max_seeding_time"]
@@ -634,11 +662,12 @@ async def async_test_all_services(
 
     qbit_url = (config.get(CONF_QBIT_URL) or "").strip()
     if qbit_url:
+        qbit_api_key = (config.get(CONF_QBIT_API_KEY) or "").strip()
         qbit_username = (config.get(CONF_QBIT_USERNAME) or "").strip()
         qbit_password = (config.get(CONF_QBIT_PASSWORD) or "").strip()
         try:
             await QbittorrentClient(
-                session, qbit_url, qbit_username, qbit_password
+                session, qbit_url, qbit_api_key, qbit_username, qbit_password
             ).async_test_connection()
         except ApiAuthError:
             results["qbittorrent"] = "invalid_auth"
