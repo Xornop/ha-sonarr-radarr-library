@@ -10,7 +10,6 @@ from .api import JellyfinClient, MaintainerrClient, QbittorrentClient, RadarrCli
 from .const import (
     CONF_JELLYFIN_API_KEY,
     CONF_JELLYFIN_URL,
-    CONF_JELLYFIN_USERNAME,
     CONF_MAINTAINERR_URL,
     CONF_QBIT_API_KEY,
     CONF_QBIT_PASSWORD,
@@ -78,7 +77,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 session,
                 jellyfin_url,
                 (config.get(CONF_JELLYFIN_API_KEY) or "").strip(),
-                (config.get(CONF_JELLYFIN_USERNAME) or "").strip(),
             )
         maintainerr_client = MaintainerrClient(
             session,
