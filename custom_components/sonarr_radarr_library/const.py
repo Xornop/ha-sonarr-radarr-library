@@ -48,11 +48,18 @@ SONARR_ENDPOINT_EPISODEFILE = "/api/v3/episodefile"
 # hash (downloadId) back to the actual series/episode, since qBittorrent
 # itself only knows the torrent's release-name, not the show it belongs to.
 SONARR_ENDPOINT_QUEUE = "/api/v3/queue"
+# The queue only holds items still downloading/importing; once Sonarr
+# finishes importing, the entry disappears from the queue even though the
+# torrent may still be sitting in qBittorrent, seeding. History keeps the
+# grab record (and therefore the hash->episode link) indefinitely, so it's
+# used to fill that gap.
+SONARR_ENDPOINT_HISTORY = "/api/v3/history"
 
 RADARR_ENDPOINT_STATUS = "/api/v3/system/status"
 RADARR_ENDPOINT_MOVIE = "/api/v3/movie"
 # Same idea as Sonarr's queue endpoint, but for movies.
 RADARR_ENDPOINT_QUEUE = "/api/v3/queue"
+RADARR_ENDPOINT_HISTORY = "/api/v3/history"
 
 # Maintainerr has no authentication at all (by design, per their own docs),
 # so there is no API key constant here.
