@@ -341,6 +341,13 @@ class MaintainerrClient:
     MEDIA_LIST_KEYS = ["media", "items", "collectionMedia", "medias"]
     ITEM_TITLE_KEYS = ["title", "name"]
     ITEM_ADD_DATE_KEYS = ["addDate", "addedAt", "createdAt", "dateAdded"]
+    ITEM_LAST_WATCHED_KEYS = [
+        "lastWatched",
+        "lastWatchedAt",
+        "lastViewedAt",
+        "lastPlayedAt",
+        "watchedAt",
+    ]
     ITEM_SCHEDULED_DATE_KEYS = [
         "scheduledDate",
         "actionDate",
@@ -452,6 +459,7 @@ class MaintainerrClient:
                         "add_date": add_date,
                         "days_after_add": days,
                         "scheduled_removal_date": scheduled_date,
+                        "last_watched_date": _first_present(item, self.ITEM_LAST_WATCHED_KEYS),
                         "size_bytes": item.get("sizeBytes"),
                         "raw": item,
                     }
