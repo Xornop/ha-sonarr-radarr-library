@@ -18,7 +18,6 @@ CONF_QBIT_PASSWORD = "qbittorrent_password"
 CONF_QBIT_NAME = "qbittorrent_name"
 CONF_JELLYFIN_URL = "jellyfin_url"
 CONF_JELLYFIN_API_KEY = "jellyfin_api_key"
-CONF_JELLYFIN_USERNAME = "jellyfin_username"
 CONF_JELLYFIN_NAME = "jellyfin_name"
 
 # Used as the device name (and therefore part of the entity_id/friendly
