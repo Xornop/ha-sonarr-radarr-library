@@ -6,8 +6,11 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import MaintainerrClient, QbittorrentClient, RadarrClient, SonarrClient
+from .api import JellyfinClient, MaintainerrClient, QbittorrentClient, RadarrClient, SonarrClient
 from .const import (
+    CONF_JELLYFIN_API_KEY,
+    CONF_JELLYFIN_URL,
+    CONF_JELLYFIN_USERNAME,
     CONF_MAINTAINERR_URL,
     CONF_QBIT_API_KEY,
     CONF_QBIT_PASSWORD,
@@ -68,11 +71,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     maintainerr_url = (config.get(CONF_MAINTAINERR_URL) or "").strip()
     if maintainerr_url:
+        jellyfin_url = (config.get(CONF_JELLYFIN_URL) or "").strip()
+        jellyfin_client = None
+        if jellyfin_url:
+            jellyfin_client = JellyfinClient(
+                session,
+                jellyfin_url,
+                (config.get(CONF_JELLYFIN_API_KEY) or "").strip(),
+                (config.get(CONF_JELLYFIN_USERNAME) or "").strip(),
+            )
         maintainerr_client = MaintainerrClient(
             session,
             maintainerr_url,
             radarr_client=radarr_client,
             sonarr_client=sonarr_client,
+            # Adds a last_watched_date per item; Maintainerr itself doesn't
+            # expose one. None if Jellyfin isn't configured.
+            jellyfin_client=jellyfin_client,
         )
         maintainerr_coordinator = MaintainerrCoordinator(hass, maintainerr_client)
         await maintainerr_coordinator.async_config_entry_first_refresh()
