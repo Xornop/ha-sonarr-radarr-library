@@ -658,7 +658,8 @@ class QbittorrentClient:
                 return match, primary_hash
         return None, primary_hash
 
-
+    @staticmethod
+    def _epoch_to_iso(value: Any) -> str | None:
         if not value or value <= 0:
             return None
         return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
