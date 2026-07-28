@@ -148,7 +148,7 @@ class SonarrRadarrLibraryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> SonarrRadarrLibraryOptionsFlow:
-        return SonarrRadarrLibraryOptionsFlow(config_entry)
+        return SonarrRadarrLibraryOptionsFlow()
 
 
 class SonarrRadarrLibraryOptionsFlow(config_entries.OptionsFlow):
