@@ -16,7 +16,6 @@ from .const import (
     CONF_JELLYFIN_API_KEY,
     CONF_JELLYFIN_NAME,
     CONF_JELLYFIN_URL,
-    CONF_JELLYFIN_USERNAME,
     CONF_MAINTAINERR_NAME,
     CONF_MAINTAINERR_URL,
     CONF_QBIT_API_KEY,
@@ -80,7 +79,6 @@ def _service_schema(defaults: dict[str, Any], include_names: bool) -> dict[Any, 
         schema[vol.Optional(CONF_JELLYFIN_NAME, default=defaults.get(CONF_JELLYFIN_NAME, DEFAULT_JELLYFIN_NAME))] = str
     schema[vol.Optional(CONF_JELLYFIN_URL, default=defaults.get(CONF_JELLYFIN_URL, ""))] = str
     schema[vol.Optional(CONF_JELLYFIN_API_KEY, default=defaults.get(CONF_JELLYFIN_API_KEY, ""))] = str
-    schema[vol.Optional(CONF_JELLYFIN_USERNAME, default=defaults.get(CONF_JELLYFIN_USERNAME, ""))] = str
 
     return schema
 
@@ -100,7 +98,6 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
     qbit_password = (data.get(CONF_QBIT_PASSWORD) or "").strip()
     jellyfin_url = (data.get(CONF_JELLYFIN_URL) or "").strip()
     jellyfin_api_key = (data.get(CONF_JELLYFIN_API_KEY) or "").strip()
-    jellyfin_username = (data.get(CONF_JELLYFIN_USERNAME) or "").strip()
 
     if sonarr_url and not sonarr_key:
         errors[CONF_SONARR_API_KEY] = "required_with_url"
@@ -112,9 +109,9 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
         errors[CONF_RADARR_URL] = "required_with_key"
     if qbit_url and not (qbit_api_key or (qbit_username and qbit_password)):
         errors[CONF_QBIT_API_KEY] = "qbit_auth_required"
-    if jellyfin_url and not (jellyfin_api_key and jellyfin_username):
-        errors[CONF_JELLYFIN_API_KEY] = "jellyfin_auth_required"
-    if (jellyfin_api_key or jellyfin_username) and not jellyfin_url:
+    if jellyfin_url and not jellyfin_api_key:
+        errors[CONF_JELLYFIN_API_KEY] = "required_with_url"
+    if jellyfin_api_key and not jellyfin_url:
         errors[CONF_JELLYFIN_URL] = "required_with_key"
 
     if errors:
