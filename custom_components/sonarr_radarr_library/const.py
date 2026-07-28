@@ -16,6 +16,10 @@ CONF_QBIT_API_KEY = "qbittorrent_api_key"
 CONF_QBIT_USERNAME = "qbittorrent_username"
 CONF_QBIT_PASSWORD = "qbittorrent_password"
 CONF_QBIT_NAME = "qbittorrent_name"
+CONF_JELLYFIN_URL = "jellyfin_url"
+CONF_JELLYFIN_API_KEY = "jellyfin_api_key"
+CONF_JELLYFIN_USERNAME = "jellyfin_username"
+CONF_JELLYFIN_NAME = "jellyfin_name"
 
 # Used as the device name (and therefore part of the entity_id/friendly
 # name) whenever the user leaves the "name" field blank at setup.
@@ -23,12 +27,14 @@ DEFAULT_SONARR_NAME = "Sonarr"
 DEFAULT_RADARR_NAME = "Radarr"
 DEFAULT_MAINTAINERR_NAME = "Maintainerr"
 DEFAULT_QBIT_NAME = "qBittorrent"
+DEFAULT_JELLYFIN_NAME = "Jellyfin"
 
 # Shown as example/helper text under the URL fields in the config flow.
 EXAMPLE_SONARR_URL = "http://homeassistant.local:8989"
 EXAMPLE_RADARR_URL = "http://homeassistant.local:7878"
 EXAMPLE_MAINTAINERR_URL = "http://homeassistant.local:6246"
 EXAMPLE_QBIT_URL = "http://homeassistant.local:8080"
+EXAMPLE_JELLYFIN_URL = "http://homeassistant.local:8096"
 
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 
@@ -71,3 +77,11 @@ MAINTAINERR_ENDPOINT_OVERLAY_DATA = "/api/collections/overlay-data"
 QBIT_ENDPOINT_LOGIN = "/api/v2/auth/login"
 QBIT_ENDPOINT_TORRENTS = "/api/v2/torrents/info"
 QBIT_ENDPOINT_PREFERENCES = "/api/v2/app/preferences"
+
+# Jellyfin is only used to enrich the Maintainerr sensor with a
+# last-watched date (Maintainerr's own overlay-data endpoint doesn't
+# expose one — confirmed against a real response, it only carries
+# id/collectionId/mediaServerId/tmdbId/tvdbId/addDate/image_path).
+JELLYFIN_ENDPOINT_SYSTEM_INFO = "/System/Info"
+JELLYFIN_ENDPOINT_USERS = "/Users"
+JELLYFIN_ENDPOINT_ITEMS = "/Items"
