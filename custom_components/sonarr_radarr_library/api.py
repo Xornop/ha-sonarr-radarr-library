@@ -11,7 +11,6 @@ import async_timeout
 from .const import (
     CONF_JELLYFIN_API_KEY,
     CONF_JELLYFIN_URL,
-    CONF_JELLYFIN_USERNAME,
     CONF_MAINTAINERR_URL,
     CONF_QBIT_API_KEY,
     CONF_QBIT_PASSWORD,
@@ -325,26 +324,25 @@ class JellyfinClient:
     a last-watched date per movie/series (Maintainerr's own payload doesn't
     carry one — see MaintainerrClient's docstring).
 
-    Auth is an API key (create one under Dashboard > API Keys), sent as an
-    `Authorization: MediaBrowser Token="..."` header. Watch state
-    (UserData) in Jellyfin is per-user, so a username is also needed to
-    know whose watch history to read; it's resolved to a user id via
-    GET /Users on first use and cached.
+    Auth is an API key only (create one under Dashboard > API Keys), sent
+    as an `Authorization: MediaBrowser Token="..."` header.
 
-    Caveat: Jellyfin computes a "LastPlayedDate" on a Series item itself,
-    which in practice reflects the most recently watched episode within
-    it — this is the best available per-series watched date, but Jellyfin
-    doesn't document that aggregation behavior, so treat it as best-effort.
+    Watch state in Jellyfin is per-user, and there's no single "watched by
+    anyone" endpoint, so this queries every user visible to the API key and
+    keeps the most recent LastPlayedDate found per item across all of them.
+
+    For series specifically, Jellyfin does not reliably set a
+    LastPlayedDate on the Series item itself when only individual episodes
+    were watched, so that's not used here. Instead, episodes are fetched
+    directly (each carries its own UserData) and grouped back to their
+    parent series via SeriesId, which is more reliable.
     """
 
-    def __init__(
-        self, session: aiohttp.ClientSession, url: str, api_key: str, username: str
-    ) -> None:
+    def __init__(self, session: aiohttp.ClientSession, url: str, api_key: str) -> None:
         self._session = session
         self._url = url.rstrip("/")
         self._api_key = api_key
-        self._username = username
-        self._user_id: str | None = None
+        self._user_ids: list[str] | None = None
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f'MediaBrowser Token="{self._api_key}"'}
@@ -364,28 +362,35 @@ class JellyfinClient:
         except (aiohttp.ClientError, TimeoutError) as err:
             raise ApiConnectionError(str(err)) from err
 
-    async def _async_resolve_user_id(self) -> str:
-        if self._user_id is not None:
-            return self._user_id
+    async def _async_get_user_ids(self) -> list[str]:
+        if self._user_ids is not None:
+            return self._user_ids
         users = await self._get(JELLYFIN_ENDPOINT_USERS)
-        for user in users:
-            if user.get("Name", "").lower() == self._username.lower():
-                self._user_id = user["Id"]
-                return self._user_id
-        raise ApiAuthError(f"No Jellyfin user named '{self._username}' found")
+        self._user_ids = [user["Id"] for user in users if user.get("Id")]
+        if not self._user_ids:
+            raise ApiAuthError("No Jellyfin users are visible with this API key")
+        return self._user_ids
 
     async def async_test_connection(self) -> None:
         """Raise ApiAuthError / ApiConnectionError if auth or the connection fails."""
         await self._get(JELLYFIN_ENDPOINT_SYSTEM_INFO)
-        await self._async_resolve_user_id()
+        await self._async_get_user_ids()
 
-    async def _async_get_items(self, item_type: str) -> list[dict[str, Any]]:
-        user_id = await self._async_resolve_user_id()
+    async def _async_get_watched_items(
+        self, user_id: str, item_type: str, extra_fields: str = ""
+    ) -> list[dict[str, Any]]:
+        fields = "ProviderIds,UserData"
+        if extra_fields:
+            fields = f"{fields},{extra_fields}"
         data = await self._get(
             JELLYFIN_ENDPOINT_ITEMS,
             IncludeItemTypes=item_type,
             Recursive="true",
-            Fields="ProviderIds",
+            Fields=fields,
+            # Only ever-played items are needed, which is usually a small
+            # fraction of the library — this keeps every user's request
+            # cheap instead of pulling the whole library each time.
+            Filters="IsPlayed",
             userId=user_id,
         )
         return data.get("Items", [])
@@ -394,30 +399,59 @@ class JellyfinClient:
         """Return (movie_map, series_map), each {provider_id: last_played_date_iso}.
 
         movie_map is keyed by TMDB id, series_map by TVDB id — matching how
-        Maintainerr identifies movies vs. shows — for whichever items
-        have both a provider id and a recorded watch date.
+        Maintainerr identifies movies vs. shows — with the most recent
+        LastPlayedDate found across every Jellyfin user.
         """
+        user_ids = await self._async_get_user_ids()
+
         movie_map: dict[int, str] = {}
-        for item in await self._async_get_items("Movie"):
-            last_played = (item.get("UserData") or {}).get("LastPlayedDate")
-            tmdb_id = (item.get("ProviderIds") or {}).get("Tmdb")
-            if last_played and tmdb_id:
-                try:
-                    movie_map[int(tmdb_id)] = last_played
-                except ValueError:
-                    continue
+        for user_id in user_ids:
+            for item in await self._async_get_watched_items(user_id, "Movie"):
+                self._track_latest(
+                    movie_map,
+                    (item.get("ProviderIds") or {}).get("Tmdb"),
+                    (item.get("UserData") or {}).get("LastPlayedDate"),
+                )
+
+        # Build SeriesId -> TVDB id once (doesn't depend on which user asks).
+        series_items = await self._get(
+            JELLYFIN_ENDPOINT_ITEMS,
+            IncludeItemTypes="Series",
+            Recursive="true",
+            Fields="ProviderIds",
+            userId=user_ids[0],
+        )
+        tvdb_by_series_id = {
+            series["Id"]: (series.get("ProviderIds") or {}).get("Tvdb")
+            for series in series_items.get("Items", [])
+            if (series.get("ProviderIds") or {}).get("Tvdb")
+        }
 
         series_map: dict[int, str] = {}
-        for item in await self._async_get_items("Series"):
-            last_played = (item.get("UserData") or {}).get("LastPlayedDate")
-            tvdb_id = (item.get("ProviderIds") or {}).get("Tvdb")
-            if last_played and tvdb_id:
-                try:
-                    series_map[int(tvdb_id)] = last_played
-                except ValueError:
-                    continue
+        for user_id in user_ids:
+            episodes = await self._async_get_watched_items(
+                user_id, "Episode", extra_fields="SeriesId"
+            )
+            for episode in episodes:
+                tvdb_id = tvdb_by_series_id.get(episode.get("SeriesId"))
+                self._track_latest(
+                    series_map, tvdb_id, (episode.get("UserData") or {}).get("LastPlayedDate")
+                )
 
         return movie_map, series_map
+
+    @staticmethod
+    def _track_latest(target: dict[int, str], provider_id: Any, last_played: Any) -> None:
+        if not provider_id or not last_played:
+            return
+        try:
+            key = int(provider_id)
+        except (TypeError, ValueError):
+            return
+        # ISO 8601 dates compare correctly as plain strings since Jellyfin
+        # always zero-pads/ formats them consistently.
+        if key not in target or last_played > target[key]:
+            target[key] = last_played
 
 
 class MaintainerrClient:
@@ -899,11 +933,8 @@ async def async_test_all_services(
     jellyfin_url = (config.get(CONF_JELLYFIN_URL) or "").strip()
     if jellyfin_url:
         jellyfin_api_key = (config.get(CONF_JELLYFIN_API_KEY) or "").strip()
-        jellyfin_username = (config.get(CONF_JELLYFIN_USERNAME) or "").strip()
         try:
-            await JellyfinClient(
-                session, jellyfin_url, jellyfin_api_key, jellyfin_username
-            ).async_test_connection()
+            await JellyfinClient(session, jellyfin_url, jellyfin_api_key).async_test_connection()
         except ApiAuthError:
             results["jellyfin"] = "invalid_auth"
         except ApiConnectionError:
