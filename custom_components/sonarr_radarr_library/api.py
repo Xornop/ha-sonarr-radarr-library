@@ -636,6 +636,7 @@ class QbittorrentClient:
                     "torrent_name": torrent.get("name"),
                     "category": torrent.get("category"),
                     "state": torrent.get("state"),
+                    "size_bytes": torrent.get("size"),
                     "progress_percent": round((torrent.get("progress") or 0) * 100, 1),
                     "added_date": self._epoch_to_iso(torrent.get("added_on")),
                     "completed_date": self._epoch_to_iso(torrent.get("completion_on")),
