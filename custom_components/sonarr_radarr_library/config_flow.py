@@ -13,6 +13,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import async_test_all_services
 from .const import (
+    CONF_JELLYFIN_API_KEY,
+    CONF_JELLYFIN_NAME,
+    CONF_JELLYFIN_URL,
+    CONF_JELLYFIN_USERNAME,
     CONF_MAINTAINERR_NAME,
     CONF_MAINTAINERR_URL,
     CONF_QBIT_API_KEY,
@@ -26,6 +30,7 @@ from .const import (
     CONF_SONARR_API_KEY,
     CONF_SONARR_NAME,
     CONF_SONARR_URL,
+    DEFAULT_JELLYFIN_NAME,
     DEFAULT_MAINTAINERR_NAME,
     DEFAULT_QBIT_NAME,
     DEFAULT_RADARR_NAME,
@@ -42,6 +47,7 @@ _ERROR_FIELD_BY_SERVICE = {
     "radarr": CONF_RADARR_API_KEY,
     "maintainerr": CONF_MAINTAINERR_URL,
     "qbittorrent": CONF_QBIT_API_KEY,
+    "jellyfin": CONF_JELLYFIN_API_KEY,
 }
 
 
@@ -70,6 +76,12 @@ def _service_schema(defaults: dict[str, Any], include_names: bool) -> dict[Any, 
     schema[vol.Optional(CONF_QBIT_USERNAME, default=defaults.get(CONF_QBIT_USERNAME, ""))] = str
     schema[vol.Optional(CONF_QBIT_PASSWORD, default=defaults.get(CONF_QBIT_PASSWORD, ""))] = str
 
+    if include_names:
+        schema[vol.Optional(CONF_JELLYFIN_NAME, default=defaults.get(CONF_JELLYFIN_NAME, DEFAULT_JELLYFIN_NAME))] = str
+    schema[vol.Optional(CONF_JELLYFIN_URL, default=defaults.get(CONF_JELLYFIN_URL, ""))] = str
+    schema[vol.Optional(CONF_JELLYFIN_API_KEY, default=defaults.get(CONF_JELLYFIN_API_KEY, ""))] = str
+    schema[vol.Optional(CONF_JELLYFIN_USERNAME, default=defaults.get(CONF_JELLYFIN_USERNAME, ""))] = str
+
     return schema
 
 
@@ -86,6 +98,9 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
     qbit_api_key = (data.get(CONF_QBIT_API_KEY) or "").strip()
     qbit_username = (data.get(CONF_QBIT_USERNAME) or "").strip()
     qbit_password = (data.get(CONF_QBIT_PASSWORD) or "").strip()
+    jellyfin_url = (data.get(CONF_JELLYFIN_URL) or "").strip()
+    jellyfin_api_key = (data.get(CONF_JELLYFIN_API_KEY) or "").strip()
+    jellyfin_username = (data.get(CONF_JELLYFIN_USERNAME) or "").strip()
 
     if sonarr_url and not sonarr_key:
         errors[CONF_SONARR_API_KEY] = "required_with_url"
@@ -97,11 +112,15 @@ async def _validate(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]
         errors[CONF_RADARR_URL] = "required_with_key"
     if qbit_url and not (qbit_api_key or (qbit_username and qbit_password)):
         errors[CONF_QBIT_API_KEY] = "qbit_auth_required"
+    if jellyfin_url and not (jellyfin_api_key and jellyfin_username):
+        errors[CONF_JELLYFIN_API_KEY] = "jellyfin_auth_required"
+    if (jellyfin_api_key or jellyfin_username) and not jellyfin_url:
+        errors[CONF_JELLYFIN_URL] = "required_with_key"
 
     if errors:
         return errors
 
-    if not (sonarr_url or radarr_url or maintainerr_url or qbit_url):
+    if not (sonarr_url or radarr_url or maintainerr_url or qbit_url or jellyfin_url):
         return {"base": "no_services_configured"}
 
     session = async_get_clientsession(hass)
@@ -135,6 +154,7 @@ class SonarrRadarrLibraryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     (user_input.get(CONF_RADARR_URL) or "").strip(),
                     (user_input.get(CONF_MAINTAINERR_URL) or "").strip(),
                     (user_input.get(CONF_QBIT_URL) or "").strip(),
+                    (user_input.get(CONF_JELLYFIN_URL) or "").strip(),
                 ]
                 await self.async_set_unique_id("|".join(p for p in unique_parts if p))
                 self._abort_if_unique_id_configured()
