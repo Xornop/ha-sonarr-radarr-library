@@ -20,8 +20,7 @@
           "qbittorrent_password": "qBittorrent wachtwoord (fallback, qBittorrent < 5.2.0)",
           "jellyfin_name": "Naam Jellyfin-sensor",
           "jellyfin_url": "Jellyfin URL",
-          "jellyfin_api_key": "Jellyfin API-key",
-          "jellyfin_username": "Jellyfin gebruikersnaam"
+          "jellyfin_api_key": "Jellyfin API-key"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
@@ -29,9 +28,8 @@
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
           "qbittorrent_url": "bijv. http://homeassistant.local:8080",
           "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord.",
-          "jellyfin_url": "bijv. http://homeassistant.local:8096",
-          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin.",
-          "jellyfin_username": "Wiens kijkgeschiedenis gebruikt wordt (voor de last-watched datums op de Maintainerr-sensor)."
+          "jellyfin_url": "bijv. http://homeassistant.local:8096. Watch-datums worden gelezen voor elke Jellyfin-gebruiker die zichtbaar is met deze API-key, niet slechts één.",
+          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin."
         }
       }
     },
@@ -42,8 +40,7 @@
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
       "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr, qBittorrent of Jellyfin in. Jellyfin voegt alleen last-watched datums toe aan de Maintainerr-sensor, dus heeft geen effect zonder Maintainerr.",
       "unknown": "Onverwachte fout opgetreden.",
-      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord.",
-      "jellyfin_auth_required": "Vul zowel een Jellyfin API-key als gebruikersnaam in."
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
     },
     "abort": {
       "already_configured": "Deze combinatie van services is al geconfigureerd."
@@ -65,8 +62,7 @@
           "qbittorrent_password": "qBittorrent wachtwoord",
           "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)",
           "jellyfin_url": "Jellyfin URL",
-          "jellyfin_api_key": "Jellyfin API-key",
-          "jellyfin_username": "Jellyfin gebruikersnaam"
+          "jellyfin_api_key": "Jellyfin API-key"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
@@ -74,9 +70,8 @@
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
           "qbittorrent_url": "bijv. http://homeassistant.local:8080",
           "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord.",
-          "jellyfin_url": "bijv. http://homeassistant.local:8096",
-          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin.",
-          "jellyfin_username": "Wiens kijkgeschiedenis gebruikt wordt (voor de last-watched datums op de Maintainerr-sensor)."
+          "jellyfin_url": "bijv. http://homeassistant.local:8096. Watch-datums worden gelezen voor elke Jellyfin-gebruiker die zichtbaar is met deze API-key, niet slechts één.",
+          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin."
         }
       }
     },
@@ -87,8 +82,7 @@
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
       "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr, qBittorrent of Jellyfin in. Jellyfin voegt alleen last-watched datums toe aan de Maintainerr-sensor, dus heeft geen effect zonder Maintainerr.",
       "unknown": "Onverwachte fout opgetreden.",
-      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord.",
-      "jellyfin_auth_required": "Vul zowel een Jellyfin API-key als gebruikersnaam in."
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
     }
   }
 }
