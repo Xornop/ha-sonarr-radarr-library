@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sonarr & Radarr Library",
-        "description": "Alle vier de services zijn optioneel — laat de URL van een service leeg om die over te slaan, zolang er minstens één is ingevuld. De naam-velden gelden alleen voor deze installatiestap; ze bepalen de entity/device-naam (en dus entity_id) en zijn later niet meer aan te passen — alleen de URL's/API-keys kun je later wijzigen (via Configureren).",
+        "description": "Alle vijf de services zijn optioneel — laat de URL van een service leeg om die over te slaan, zolang er minstens één is ingevuld. De naam-velden gelden alleen voor deze installatiestap; ze bepalen de entity/device-naam (en dus entity_id) en zijn later niet meer aan te passen — alleen de URL's/API-keys kun je later wijzigen (via Configureren).",
         "data": {
           "sonarr_name": "Naam Sonarr-sensor",
           "sonarr_url": "Sonarr URL",
@@ -17,14 +17,21 @@
           "qbittorrent_url": "qBittorrent URL",
           "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)",
           "qbittorrent_username": "qBittorrent gebruikersnaam (fallback, qBittorrent < 5.2.0)",
-          "qbittorrent_password": "qBittorrent wachtwoord (fallback, qBittorrent < 5.2.0)"
+          "qbittorrent_password": "qBittorrent wachtwoord (fallback, qBittorrent < 5.2.0)",
+          "jellyfin_name": "Naam Jellyfin-sensor",
+          "jellyfin_url": "Jellyfin URL",
+          "jellyfin_api_key": "Jellyfin API-key",
+          "jellyfin_username": "Jellyfin gebruikersnaam"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
           "qbittorrent_url": "bijv. http://homeassistant.local:8080",
-          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord."
+          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord.",
+          "jellyfin_url": "bijv. http://homeassistant.local:8096",
+          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin.",
+          "jellyfin_username": "Wiens kijkgeschiedenis gebruikt wordt (voor de last-watched datums op de Maintainerr-sensor)."
         }
       }
     },
@@ -33,9 +40,10 @@
       "invalid_auth": "Ongeldige API-key.",
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
-      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr, qBittorrent of Jellyfin in. Jellyfin voegt alleen last-watched datums toe aan de Maintainerr-sensor, dus heeft geen effect zonder Maintainerr.",
       "unknown": "Onverwachte fout opgetreden.",
-      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord.",
+      "jellyfin_auth_required": "Vul zowel een Jellyfin API-key als gebruikersnaam in."
     },
     "abort": {
       "already_configured": "Deze combinatie van services is al geconfigureerd."
@@ -55,14 +63,20 @@
           "qbittorrent_url": "qBittorrent URL",
           "qbittorrent_username": "qBittorrent gebruikersnaam",
           "qbittorrent_password": "qBittorrent wachtwoord",
-          "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)"
+          "qbittorrent_api_key": "qBittorrent API-key (voorkeur, qBittorrent ≥ 5.2.0)",
+          "jellyfin_url": "Jellyfin URL",
+          "jellyfin_api_key": "Jellyfin API-key",
+          "jellyfin_username": "Jellyfin gebruikersnaam"
         },
         "data_description": {
           "sonarr_url": "bijv. http://homeassistant.local:8989",
           "radarr_url": "bijv. http://homeassistant.local:7878",
           "maintainerr_url": "bijv. http://homeassistant.local:6246",
           "qbittorrent_url": "bijv. http://homeassistant.local:8080",
-          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord."
+          "qbittorrent_api_key": "Genereer deze in qBittorrent's WebUI-instellingen. Heeft voorkeur boven gebruikersnaam/wachtwoord.",
+          "jellyfin_url": "bijv. http://homeassistant.local:8096",
+          "jellyfin_api_key": "Maak er een aan onder Dashboard > API Keys in Jellyfin.",
+          "jellyfin_username": "Wiens kijkgeschiedenis gebruikt wordt (voor de last-watched datums op de Maintainerr-sensor)."
         }
       }
     },
@@ -71,9 +85,10 @@
       "invalid_auth": "Ongeldige API-key.",
       "required_with_url": "Een API-key is verplicht als er een URL is ingevuld.",
       "required_with_key": "Een URL is verplicht als er een API-key is ingevuld.",
-      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr of qBittorrent in.",
+      "no_services_configured": "Vul minstens één van Sonarr, Radarr, Maintainerr, qBittorrent of Jellyfin in. Jellyfin voegt alleen last-watched datums toe aan de Maintainerr-sensor, dus heeft geen effect zonder Maintainerr.",
       "unknown": "Onverwachte fout opgetreden.",
-      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord."
+      "qbit_auth_required": "Vul een qBittorrent API-key in, of zowel een gebruikersnaam als wachtwoord.",
+      "jellyfin_auth_required": "Vul zowel een Jellyfin API-key als gebruikersnaam in."
     }
   }
 }
