@@ -23,10 +23,12 @@ from .const import (
     QBIT_ENDPOINT_LOGIN,
     QBIT_ENDPOINT_PREFERENCES,
     QBIT_ENDPOINT_TORRENTS,
+    RADARR_ENDPOINT_HISTORY,
     RADARR_ENDPOINT_MOVIE,
     RADARR_ENDPOINT_QUEUE,
     RADARR_ENDPOINT_STATUS,
     SONARR_ENDPOINT_EPISODEFILE,
+    SONARR_ENDPOINT_HISTORY,
     SONARR_ENDPOINT_QUEUE,
     SONARR_ENDPOINT_SERIES,
     SONARR_ENDPOINT_STATUS,
@@ -154,15 +156,36 @@ class SonarrClient(_BaseArrClient):
         """Return {infohash_lower: {"title": ..., "media_type": "series"}}.
 
         This is the actual fix for qBittorrent only knowing a torrent's
-        release name: Sonarr's own download queue links each item's
-        downloadId (the torrent's info hash) to the series/episode it
-        belongs to, since Sonarr is the one that told the download client
-        what to grab in the first place.
+        release name: Sonarr's own download queue and history link each
+        item's downloadId (the torrent's info hash) to the series/episode
+        it belongs to, since Sonarr is the one that told the download
+        client what to grab in the first place. The queue alone only
+        covers items still downloading/importing; history is added on top
+        to also cover already-imported episodes that are still seeding.
         """
-        records = await self._get_all_pages(
+        queue_records = await self._get_all_pages(
             SONARR_ENDPOINT_QUEUE, "pageSize=200&includeSeries=true&includeEpisode=true"
         )
+        result = self._queue_records_to_map(queue_records)
 
+        try:
+            history = await self._get(
+                f"{SONARR_ENDPOINT_HISTORY}?pageSize=1000&includeSeries=true&includeEpisode=true"
+            )
+            grabbed = [
+                record
+                for record in history.get("records", [])
+                if record.get("eventType") == "grabbed"
+            ]
+            for download_id, info in self._queue_records_to_map(grabbed).items():
+                result.setdefault(download_id, info)
+        except (ApiAuthError, ApiConnectionError) as err:
+            _LOGGER.warning("Could not read Sonarr grab history: %s", err)
+
+        return result
+
+    @staticmethod
+    def _queue_records_to_map(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
         for record in records:
             download_id = record.get("downloadId")
@@ -233,12 +256,34 @@ class RadarrClient(_BaseArrClient):
 
         Same idea as SonarrClient.async_get_queue_map(): Radarr's queue
         links each item's downloadId (torrent info hash) to the actual
-        movie, since Radarr is the one that sent it to the download client.
+        movie, since Radarr is the one that sent it to the download
+        client. History is merged in on top to also cover already-imported
+        movies that are still seeding (and therefore no longer in the
+        queue).
         """
-        records = await self._get_all_pages(
+        queue_records = await self._get_all_pages(
             RADARR_ENDPOINT_QUEUE, "pageSize=200&includeMovie=true"
         )
+        result = self._queue_records_to_map(queue_records)
 
+        try:
+            history = await self._get(
+                f"{RADARR_ENDPOINT_HISTORY}?pageSize=1000&includeMovie=true"
+            )
+            grabbed = [
+                record
+                for record in history.get("records", [])
+                if record.get("eventType") == "grabbed"
+            ]
+            for download_id, info in self._queue_records_to_map(grabbed).items():
+                result.setdefault(download_id, info)
+        except (ApiAuthError, ApiConnectionError) as err:
+            _LOGGER.warning("Could not read Radarr grab history: %s", err)
+
+        return result
+
+    @staticmethod
+    def _queue_records_to_map(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
         for record in records:
             download_id = record.get("downloadId")
