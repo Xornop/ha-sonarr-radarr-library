@@ -11,36 +11,23 @@ CONF_RADARR_API_KEY = "radarr_api_key"
 CONF_RADARR_NAME = "radarr_name"
 CONF_MAINTAINERR_URL = "maintainerr_url"
 CONF_MAINTAINERR_NAME = "maintainerr_name"
-CONF_QBIT_URL = "qbittorrent_url"
-CONF_QBIT_API_KEY = "qbittorrent_api_key"
-CONF_QBIT_USERNAME = "qbittorrent_username"
-CONF_QBIT_PASSWORD = "qbittorrent_password"
-CONF_QBIT_NAME = "qbittorrent_name"
-CONF_JELLYFIN_URL = "jellyfin_url"
-CONF_JELLYFIN_API_KEY = "jellyfin_api_key"
-CONF_JELLYFIN_NAME = "jellyfin_name"
 
 # Used as the device name (and therefore part of the entity_id/friendly
 # name) whenever the user leaves the "name" field blank at setup.
 DEFAULT_SONARR_NAME = "Sonarr"
 DEFAULT_RADARR_NAME = "Radarr"
 DEFAULT_MAINTAINERR_NAME = "Maintainerr"
-DEFAULT_QBIT_NAME = "qBittorrent"
-DEFAULT_JELLYFIN_NAME = "Jellyfin"
 
 # Shown as example/helper text under the URL fields in the config flow.
 EXAMPLE_SONARR_URL = "http://homeassistant.local:8989"
 EXAMPLE_RADARR_URL = "http://homeassistant.local:7878"
 EXAMPLE_MAINTAINERR_URL = "http://homeassistant.local:6246"
-EXAMPLE_QBIT_URL = "http://homeassistant.local:8080"
-EXAMPLE_JELLYFIN_URL = "http://homeassistant.local:8096"
 
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 
 SONARR_COORDINATOR = "sonarr_coordinator"
 RADARR_COORDINATOR = "radarr_coordinator"
 MAINTAINERR_COORDINATOR = "maintainerr_coordinator"
-QBIT_COORDINATOR = "qbittorrent_coordinator"
 
 ATTR_ITEMS = "items"
 ATTR_LAST_DOWNLOAD = "last_download"
@@ -49,22 +36,13 @@ ATTR_NEXT_REMOVAL = "next_removal"
 SONARR_ENDPOINT_STATUS = "/api/v3/system/status"
 SONARR_ENDPOINT_SERIES = "/api/v3/series"
 SONARR_ENDPOINT_EPISODEFILE = "/api/v3/episodefile"
-# Sonarr's current download queue. This is what maps a qBittorrent info
-# hash (downloadId) back to the actual series/episode, since qBittorrent
-# itself only knows the torrent's release-name, not the show it belongs to.
-SONARR_ENDPOINT_QUEUE = "/api/v3/queue"
-# The queue only holds items still downloading/importing; once Sonarr
-# finishes importing, the entry disappears from the queue even though the
-# torrent may still be sitting in qBittorrent, seeding. History keeps the
-# grab record (and therefore the hash->episode link) indefinitely, so it's
-# used to fill that gap.
-SONARR_ENDPOINT_HISTORY = "/api/v3/history"
+# Metadata lookup (TVDB-backed); also finds series not in the library.
+SONARR_ENDPOINT_LOOKUP = "/api/v3/series/lookup"
 
 RADARR_ENDPOINT_STATUS = "/api/v3/system/status"
 RADARR_ENDPOINT_MOVIE = "/api/v3/movie"
-# Same idea as Sonarr's queue endpoint, but for movies.
-RADARR_ENDPOINT_QUEUE = "/api/v3/queue"
-RADARR_ENDPOINT_HISTORY = "/api/v3/history"
+# Metadata lookup (TMDB-backed); also finds movies not in the library.
+RADARR_ENDPOINT_LOOKUP_TMDB = "/api/v3/movie/lookup/tmdb"
 
 # Maintainerr has no authentication at all (by design, per their own docs),
 # so there is no API key constant here.
@@ -72,15 +50,3 @@ MAINTAINERR_ENDPOINT_HEALTH = "/api/health"
 # Powers Maintainerr's own Calendar page, so it carries everything needed
 # to compute a scheduled removal date per media item.
 MAINTAINERR_ENDPOINT_OVERLAY_DATA = "/api/collections/overlay-data"
-
-QBIT_ENDPOINT_LOGIN = "/api/v2/auth/login"
-QBIT_ENDPOINT_TORRENTS = "/api/v2/torrents/info"
-QBIT_ENDPOINT_PREFERENCES = "/api/v2/app/preferences"
-
-# Jellyfin is only used to enrich the Maintainerr sensor with a
-# last-watched date (Maintainerr's own overlay-data endpoint doesn't
-# expose one — confirmed against a real response, it only carries
-# id/collectionId/mediaServerId/tmdbId/tvdbId/addDate/image_path).
-JELLYFIN_ENDPOINT_SYSTEM_INFO = "/System/Info"
-JELLYFIN_ENDPOINT_USERS = "/Users"
-JELLYFIN_ENDPOINT_ITEMS = "/Items"
