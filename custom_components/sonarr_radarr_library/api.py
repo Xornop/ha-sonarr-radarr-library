@@ -224,19 +224,47 @@ class SonarrClient(_BaseArrClient):
             if series.get("tvdbId")
         }
 
-    async def async_lookup_title_by_tvdb(self, tvdb_id: int) -> str | None:
-        """Look up a series title via Sonarr's metadata lookup (no extra API key).
+    async def async_get_series_title_maps(self) -> tuple[dict[int, str], dict[int, str]]:
+        """Return ({tvdbId: title}, {tmdbId: title}) for every series in Sonarr.
 
-        Works even for series that aren't in the Sonarr library. Returns
-        None if nothing is found or the lookup fails.
+        One request for both; Sonarr v4 exposes tmdbId on series, older
+        versions simply won't fill the second map.
+        """
+        series_list = await self._get(SONARR_ENDPOINT_SERIES)
+        by_tvdb = {
+            s["tvdbId"]: s.get("title", "Unknown") for s in series_list if s.get("tvdbId")
+        }
+        by_tmdb = {
+            s["tmdbId"]: s.get("title", "Unknown") for s in series_list if s.get("tmdbId")
+        }
+        return by_tvdb, by_tmdb
+
+    async def _async_lookup_series(
+        self, term: str, id_field: str, wanted_id: int
+    ) -> str | None:
+        """Sonarr metadata lookup (series only, no extra API key).
+
+        Works for series that aren't in the library. Only a result whose id
+        really equals the requested one is accepted — never just the first
+        hit — since ids from different databases/media types can overlap.
         """
         try:
-            results = await self._get(f"{SONARR_ENDPOINT_LOOKUP}?term=tvdb:{tvdb_id}")
-        except (ApiAuthError, ApiConnectionError):
+            results = await self._get(f"{SONARR_ENDPOINT_LOOKUP}?term={term}")
+        except (ApiAuthError, ApiConnectionError) as err:
+            _LOGGER.debug("Sonarr lookup %s failed: %s", term, err)
             return None
-        if isinstance(results, list) and results:
-            return results[0].get("title")
+        if not isinstance(results, list):
+            return None
+        for result in results:
+            if result.get(id_field) == wanted_id:
+                return result.get("title")
         return None
+
+    async def async_lookup_title_by_tvdb(self, tvdb_id: int) -> str | None:
+        return await self._async_lookup_series(f"tvdb:{tvdb_id}", "tvdbId", tvdb_id)
+
+    async def async_lookup_title_by_tmdb(self, tmdb_id: int) -> str | None:
+        return await self._async_lookup_series(f"tmdb:{tmdb_id}", "tmdbId", tmdb_id)
 
 
 class RadarrClient(_BaseArrClient):
@@ -342,10 +370,14 @@ class RadarrClient(_BaseArrClient):
         """
         try:
             result = await self._get(f"{RADARR_ENDPOINT_LOOKUP_TMDB}?tmdbId={tmdb_id}")
-        except (ApiAuthError, ApiConnectionError):
+        except (ApiAuthError, ApiConnectionError) as err:
+            _LOGGER.debug("Radarr lookup tmdbId=%s failed: %s", tmdb_id, err)
             return None
-        if isinstance(result, dict):
-            return result.get("title")
+        # This endpoint is movie-only, but still require the id to match.
+        candidates = result if isinstance(result, list) else [result]
+        for candidate in candidates:
+            if isinstance(candidate, dict) and candidate.get("tmdbId") == tmdb_id:
+                return candidate.get("title")
         return None
 
 
@@ -539,26 +571,47 @@ class MaintainerrClient:
         self._jellyfin_client = jellyfin_client
         # Titles found via lookup, so each item is only looked up once.
         self._lookup_cache: dict[tuple[str, int], str] = {}
+        self._failed_lookups: set[tuple[str, str, int]] = set()
 
     async def _async_lookup_title(
         self, collection_type: str | None, tmdb_id: int | None, tvdb_id: int | None
     ) -> str | None:
-        """Resolve a title via Radarr (TMDB) / Sonarr (TVDB) lookup, with caching."""
-        if collection_type == "movie" and tmdb_id and self._radarr_client:
-            key = ("tmdb", tmdb_id)
-            if key not in self._lookup_cache:
-                title = await self._radarr_client.async_lookup_title_by_tmdb(tmdb_id)
-                if title:
-                    self._lookup_cache[key] = title
-            return self._lookup_cache.get(key)
+        """Resolve a title via Radarr/Sonarr lookup, with caching.
 
-        if collection_type == "show" and tvdb_id and self._sonarr_client:
-            key = ("tvdb", tvdb_id)
+        The collection type decides which service is asked, so a TMDB id is
+        only ever looked up as a movie (Radarr) or a series (Sonarr), never
+        as the other kind: TMDB ids overlap between movies, series and people.
+        """
+        if collection_type == "movie":
+            attempts = [("radarr", "tmdb", tmdb_id)]
+        elif collection_type == "show":
+            attempts = [("sonarr", "tvdb", tvdb_id), ("sonarr", "tmdb", tmdb_id)]
+        else:
+            return None
+
+        for service, id_kind, media_id in attempts:
+            client = self._radarr_client if service == "radarr" else self._sonarr_client
+            if not media_id or client is None:
+                continue
+
+            key = (f"{collection_type}-{id_kind}", media_id)
             if key not in self._lookup_cache:
-                title = await self._sonarr_client.async_lookup_title_by_tvdb(tvdb_id)
+                if id_kind == "tmdb":
+                    title = await client.async_lookup_title_by_tmdb(media_id)
+                else:
+                    title = await client.async_lookup_title_by_tvdb(media_id)
                 if title:
                     self._lookup_cache[key] = title
-            return self._lookup_cache.get(key)
+                else:
+                    failed = (service, id_kind, media_id)
+                    if failed not in self._failed_lookups:
+                        self._failed_lookups.add(failed)
+                        _LOGGER.warning(
+                            "Could not resolve a title for %s %s %s via %s lookup",
+                            collection_type, id_kind.upper(), media_id, service.capitalize(),
+                        )
+            if key in self._lookup_cache:
+                return self._lookup_cache[key]
 
         return None
 
@@ -579,6 +632,7 @@ class MaintainerrClient:
         """Return media items whose collection has a pending scheduled action."""
         tmdb_map: dict[int, str] = {}
         tvdb_map: dict[int, str] = {}
+        series_tmdb_map: dict[int, str] = {}
 
         if self._radarr_client is not None:
             try:
@@ -588,7 +642,7 @@ class MaintainerrClient:
 
         if self._sonarr_client is not None:
             try:
-                tvdb_map = await self._sonarr_client.async_get_tvdb_title_map()
+                tvdb_map, series_tmdb_map = await self._sonarr_client.async_get_series_title_maps()
             except (ApiAuthError, ApiConnectionError) as err:
                 _LOGGER.debug("Could not resolve series titles via Sonarr: %s", err)
 
@@ -643,6 +697,8 @@ class MaintainerrClient:
                         item_title = tmdb_map[tmdb_id]
                     elif collection_type == "show" and tvdb_id in tvdb_map:
                         item_title = tvdb_map[tvdb_id]
+                    elif collection_type == "show" and tmdb_id in series_tmdb_map:
+                        item_title = series_tmdb_map[tmdb_id]
                     else:
                         # Not in the Radarr/Sonarr library: ask their
                         # TMDB/TVDB lookup before falling back to the raw id.
