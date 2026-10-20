@@ -541,6 +541,11 @@ class MaintainerrClient:
     separately from a JellyfinClient, if one was provided.
     """
 
+    # Maintainerr collection types that hold series content. A "season"
+    # collection (e.g. "Delete Series 30 days after last watch") still
+    # carries the parent series' tmdbId/tvdbId, so it's matched like a show.
+    SERIES_TYPES = ("show", "season", "episode")
+
     COLLECTION_TITLE_KEYS = ["title", "name"]
     COLLECTION_TYPE_KEYS = ["type", "mediaType"]
     COLLECTION_DAYS_KEYS = ["deleteAfterDays", "amountOfDays", "afterDays", "days"]
@@ -584,7 +589,7 @@ class MaintainerrClient:
         """
         if collection_type == "movie":
             attempts = [("radarr", "tmdb", tmdb_id)]
-        elif collection_type == "show":
+        elif collection_type in self.SERIES_TYPES:
             attempts = [("sonarr", "tvdb", tvdb_id), ("sonarr", "tmdb", tmdb_id)]
         else:
             return None
@@ -594,7 +599,8 @@ class MaintainerrClient:
             if not media_id or client is None:
                 continue
 
-            key = (f"{collection_type}-{id_kind}", media_id)
+            kind = "series" if collection_type in self.SERIES_TYPES else collection_type
+            key = (f"{kind}-{id_kind}", media_id)
             if key not in self._lookup_cache:
                 if id_kind == "tmdb":
                     title = await client.async_lookup_title_by_tmdb(media_id)
@@ -695,9 +701,9 @@ class MaintainerrClient:
                 if not item_title:
                     if collection_type == "movie" and tmdb_id in tmdb_map:
                         item_title = tmdb_map[tmdb_id]
-                    elif collection_type == "show" and tvdb_id in tvdb_map:
+                    elif collection_type in self.SERIES_TYPES and tvdb_id in tvdb_map:
                         item_title = tvdb_map[tvdb_id]
-                    elif collection_type == "show" and tmdb_id in series_tmdb_map:
+                    elif collection_type in self.SERIES_TYPES and tmdb_id in series_tmdb_map:
                         item_title = series_tmdb_map[tmdb_id]
                     else:
                         # Not in the Radarr/Sonarr library: ask their
@@ -720,7 +726,7 @@ class MaintainerrClient:
 
                 if collection_type == "movie":
                     last_watched_date = jellyfin_movie_watch_map.get(tmdb_id)
-                elif collection_type == "show":
+                elif collection_type in self.SERIES_TYPES:
                     last_watched_date = jellyfin_series_watch_map.get(tvdb_id)
                 else:
                     last_watched_date = None
